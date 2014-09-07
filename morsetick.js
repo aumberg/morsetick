@@ -32,7 +32,7 @@
 
 	// memory
 
-	m["memory audio"] = window.document.createElement("audio");
+	m["memory audio"] = new Audio(); // window.document.createElement("audio");
 	m["memory AudioContext"] = new (window.AudioContext || window.webkitAudioContext);
 	m["memory oscillator"] = m["memory AudioContext"].createOscillator();
 	m["memory oscillator"].frequency.value = 440;
@@ -41,7 +41,8 @@
 	m["memory oscillator"].connect(m["memory oscillator gain"]);
 	m["memory oscillator gain"].connect(m["memory AudioContext"].destination);
 	m["memory oscillator"].start(0);
-	m["memory time for dot"] = 100;
+	m["memory time for dot"] = 150;
+	m["memory last audio source"] = "";
 	m["memory keyboard downtime"];
 	m["memory keyboard uptime"];
 	m["memory input message"] = "";
@@ -49,7 +50,7 @@
 	m["memory timeout clear input"];
 	m["memory timeout word space"];
 	m["memory link"] = {
-		"e": "http://elisto03e.music.yandex.ru/get-mp3/6a7b0a8ca349e36da9ee73a38371ee27/502699c19148d/11/data-0.43:10892946601:5586650?track-id=16549426&play=false&experiments=%7B%22similarities%22%3A%22default%22%2C%22genreRadio%22%3A%22matrixnet-default-copy%22%2C%22newMusic%22%3A%22no%22%2C%22trackClick%22%3A%22no%22%2C%22recommendedArtists%22%3A%22suggest%22%2C%22adv%22%3A%22default%22%2C%22myMusicButton%22%3A%22no%22%7D&from=web-album_track-track-track-main&albumId=1871617"
+		"hello": "http://elisto03e.music.yandex.ru/get-mp3/6a7b0a8ca349e36da9ee73a38371ee27/502699c19148d/11/data-0.43:10892946601:5586650?track-id=16549426&play=false&experiments=%7B%22similarities%22%3A%22default%22%2C%22genreRadio%22%3A%22matrixnet-default-copy%22%2C%22newMusic%22%3A%22no%22%2C%22trackClick%22%3A%22no%22%2C%22recommendedArtists%22%3A%22suggest%22%2C%22adv%22%3A%22default%22%2C%22myMusicButton%22%3A%22no%22%7D&from=web-album_track-track-track-main&albumId=1871617"
 	}
 
 	// library
@@ -107,32 +108,31 @@
 	    return result;
 	}
 
-	m["library generated sound start"] = function() {
+	//
+
+	m["generated sound start"] = function() {
 		m["memory oscillator gain"].gain.value = 0.1;
 	}
 
-	m["library generated sound stop"] = function() {
+	m["generated sound stop"] = function() {
 		m["memory oscillator gain"].gain.value = 0;
 	}
-	
-	//
 
-	//
 	m["green"] = function() {
-		if (arguments.length && m["option program debug mode"] && window.console && ("function" === typeof window.console.log)) {
-			window.console.log("morsetick OK: ", arguments);
+		if (arguments.length && m["option program debug mode"] && console && ("function" === typeof console.log)) {
+			console.log("morsetick OK: ", arguments);
 		}
 	};
-	//
+
 	m["yellow"] = function() {
-		if (arguments.length && m["option program debug mode"] && window.console && ("function" === typeof window.console.error)) {
-			window.console.error("morsetick LOG: ", arguments);
+		if (arguments.length && m["option program debug mode"] && console && ("function" === typeof console.error)) {
+			console.error("morsetick LOG: ", arguments);
 		}
 	};
-	//
+
 	m["red"] = function() {
-		if (arguments.length && m["option program debug mode"] && window.console && ("function" === typeof window.console.error)) {
-			window.console.error("morsetick ERROR: ", arguments);
+		if (arguments.length && m["option program debug mode"] && console && ("function" === typeof console.error)) {
+			console.error("morsetick ERROR: ", arguments);
 		}
 
 		return null;
@@ -154,7 +154,7 @@
 		audio.pause();
 		audio.src = stringSrc;
 		audio.play();
-	}
+	};
 
 	m["off"] = function() {
 		$(window).add($("*", "body")).off(".morsetick .morsetick-control");
@@ -163,6 +163,21 @@
 
 	$(m["on"] = function() {
 		m["off"]();
+		// wrap play method of html5 audio object for get media source
+		// if it's bug, it's good BUG :)
+		(function(audioNode, audioObject) {
+			var massOfAudio = [audioNode, audioObject];
+			var mass = [audioNode.constructor.prototype.play, audioObject.constructor.prototype.play];
+
+			for (var index in massOfAudio) {
+				massOfAudio[index].constructor.prototype.play = function() {
+					m["memory last audio source"] = this.src;
+					mass[index - 1].call(this);
+				}
+			}
+		}(window.document.createElement("audio"), new Audio()));
+		// 
+		// $("iframe").contents().find("object").add($("object"))
 
 		$(window)
 			.on("keydown.morsetick", function(event) {
@@ -174,20 +189,17 @@
 				//
 				var downDiff = m["memory keyboard downtime"] - m["memory keyboard uptime"];
 
-				m["memory time for dot"] = (downDiff < 150) ? downDiff : m["memory time for dot"];
-
 				var stop = function() {
 					$(window).off(".morsetick-control");
-					// clearInterval(intervalIncreaseTime);
 					clearTimeout(m["memory timeout char space"]);
 					clearTimeout(m["memory timeout clear input"]);
 					clearTimeout(m["memory timeout word space"]);
-					m["library generated sound stop"]();
+					m["generated sound stop"]();
 				}
 
 				stop();
 
-				m["library generated sound start"]();
+				m["generated sound start"]();
 
 				$(window)
 					.one("keydown.morsetick-control", function(event) {
@@ -201,17 +213,25 @@
 							return;
 						}
 
+						if (console.clear) {
+							console.clear();
+						}
+
 						var upDiff = m["memory keyboard uptime"] - m["memory keyboard downtime"];
-						// m["yellow"](m["memory time for dot"]);
-						
-						m["memory input message"] += (upDiff < 150) ? "•" : "−";
+						var isDot = (upDiff < (m["memory time for dot"] + 75)) ? true : false;
+
+						m["memory time for dot"] = isDot ? upDiff : m["memory time for dot"];
+						m["memory input message"] += isDot ? "•" : "−";
+						m["yellow"](m["memory time for dot"]);
 						m["yellow"](m["library morse"](m["memory input message"]), m["memory input message"])
+						
 						m["memory timeout char space"] = setTimeout(function() {
 							m["memory input message"] += " ";
-						}, m["memory time for dot"] * 2);
+						}, m["memory time for dot"] * 2 + 100);
+						
 						m["memory timeout word space"] = setTimeout(function() {
 							m["memory input message"] += "  ";
-						}, m["memory time for dot"] * 5);
+						}, m["memory time for dot"] * 10);
 
 						m["memory timeout clear input"] = setTimeout(function() {
 							var message = m["library morse"]($.trim(m["memory input message"]));
@@ -223,9 +243,8 @@
 
 								if ("s " === message.slice(0, 2)) {
 									message = message.slice(2);
-									m["red"]("eeeeee")
-
-									// m["memory link"][message] = 
+									m["green"]("media saved with key '" + message + "', and value '" + m["memory last audio source"] +"'");
+									m["memory link"][message] = m["memory last audio source"];
 								}
 							}
 							else if (m["memory link"][message]) {
@@ -234,7 +253,7 @@
 							}
 
 							m["memory input message"] = "";
-						}, m["memory time for dot"] * 12);
+						}, m["memory time for dot"] * 15);
 					});
 			})
 	});
