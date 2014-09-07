@@ -26,8 +26,9 @@
 	m["option program src"] = m["option program debug src"];
 	m["option program version"] = "0";
 	m["option audio volume"] = 75;
-	m["memory timeout word space"];
 	m["memory timeout clear input"];
+	m["memory timeout char space"];
+	m["memory timeout word space"];
 
 	// memory
 
@@ -40,6 +41,9 @@
 	m["memory oscillator"].connect(m["memory oscillator gain"]);
 	m["memory oscillator gain"].connect(m["memory AudioContext"].destination);
 	m["memory oscillator"].start(0);
+	m["memory time for dot"] = 100;
+	m["memory keyboard downtime"];
+	m["memory keyboard uptime"];
 	m["memory input message"] = "";
 	m["memory program status"] = "off";
 	m["memory timeout clear input"];
@@ -70,15 +74,35 @@
 			codes[codes[code]] = code;
 		};
 
-		for(charIndex in string) {
-			if (codes[string[charIndex]]) {
-				result += codes[string[charIndex]];
+		//if it morse code, comvert to latim
+		if (string.match(/[•−]/)) {
+			var mass = string.split(/([•−]+)/g);
+
+			for(index in mass) {
+				if ("   " === mass[index].slice(0, 3)) {
+					mass[index] = mass[index].slice(2);
+				}
+				else if (" " === mass[index].slice(0, 1)) {
+					mass[index] = mass[index].slice(1);
+				}
+			}
+
+		}
+		else {
+			var mass = string.split(/([A-z])/g);
+		}
+
+		for(charIndex in mass) {
+			if (codes[mass[charIndex]]) {
+				result += codes[mass[charIndex]];
 
 				continue;
 			}
 
-			result += string[charIndex];
+			result += mass[charIndex];
 		};
+
+		// m["yellow"](mass, string, result)
 
 	    return result;
 	}
@@ -132,23 +156,8 @@
 		audio.play();
 	}
 
-	m["morse to latin"] = function(string) {
-		var codes = m["library morse codes"]();
-		var result = "";
-
-		for(morseCode in string) {
-			if (!codes[ch]) {
-				return null;
-			}
-			
-			result += " " + codes[ch];
-		};
-		
-		return result.slice(1);
-	};
-
 	m["off"] = function() {
-		$(window).off(".morsetick .morsetick-control");
+		$(window).add($("*", "body")).off(".morsetick .morsetick-control");
 		m["memory program status"] = "off";
 	};
 
@@ -157,19 +166,22 @@
 
 		$(window)
 			.on("keydown.morsetick", function(event) {
+				m["memory keyboard downtime"] = (new Date()).getTime();
 				// return if not CONTROL pressed
 				if (17 !== event.which) {
 					return;
 				}
 				//
+				var downDiff = m["memory keyboard downtime"] - m["memory keyboard uptime"];
 
-				var milliseconds = 0;
-				var intervalIncreaseTime;
+				m["memory time for dot"] = (downDiff < 150) ? downDiff : m["memory time for dot"];
+
 				var stop = function() {
 					$(window).off(".morsetick-control");
-					clearInterval(intervalIncreaseTime);
-					clearTimeout(m["memory timeout word space"]);
+					// clearInterval(intervalIncreaseTime);
+					clearTimeout(m["memory timeout char space"]);
 					clearTimeout(m["memory timeout clear input"]);
+					clearTimeout(m["memory timeout word space"]);
 					m["library generated sound stop"]();
 				}
 
@@ -177,38 +189,52 @@
 
 				m["library generated sound start"]();
 
-				intervalIncreaseTime = setInterval(function() {
-					milliseconds += 100;
-				}, 100);
-
 				$(window)
 					.one("keydown.morsetick-control", function(event) {
 						stop();
 					})
 					.one("keyup.morsetick-control", function(event) {
 						stop();
+						m["memory keyboard uptime"] = (new Date()).getTime();
 
 						if (17 !== event.which) {
 							return;
 						}
 
-						m["memory input message"] += (milliseconds < 130) ? "•" : "−";
+						var upDiff = m["memory keyboard uptime"] - m["memory keyboard downtime"];
+						// m["yellow"](m["memory time for dot"]);
+						
+						m["memory input message"] += (upDiff < 150) ? "•" : "−";
 						m["yellow"](m["library morse"](m["memory input message"]), m["memory input message"])
-
-						m["memory timeout word space"] = setTimeout(function() {
+						m["memory timeout char space"] = setTimeout(function() {
 							m["memory input message"] += " ";
-						}, 500);
+						}, m["memory time for dot"] * 2);
+						m["memory timeout word space"] = setTimeout(function() {
+							m["memory input message"] += "  ";
+						}, m["memory time for dot"] * 5);
+
 						m["memory timeout clear input"] = setTimeout(function() {
 							var message = m["library morse"]($.trim(m["memory input message"]));
+
 							m["audio stop"]();
 
-							if (m["memory link"][message]) {
+							if ("m " === message.slice(0, 2)) {
+								message = message.slice(2);
+
+								if ("s " === message.slice(0, 2)) {
+									message = message.slice(2);
+									m["red"]("eeeeee")
+
+									// m["memory link"][message] = 
+								}
+							}
+							else if (m["memory link"][message]) {
 								m["audio play"](m["memory link"][message]);
 								m["green"](m["memory link"][message]);
 							}
 
 							m["memory input message"] = "";
-						}, 2000);
+						}, m["memory time for dot"] * 12);
 					});
 			})
 	});
