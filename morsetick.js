@@ -55,57 +55,42 @@
 
 	// library
 
+	//morse code comvert to latin, or vice versa
 	m["library morse"] = function(string) {
-		var codes = {
-			"a": "•−",    "b": "−•••",  "c": "−•−•",  "d": "−••",
-			"e": "•",     "f": "••−•",  "g": "−−•",   "h": "••••",
-			"i": "••",    "j": "•−−−",  "k": "−•−",   "l": "•−••",
-			"m": "−−",    "n": "−•",    "o": "−−−",   "p": "•−−•",
-			"q": "−−•−",  "r": "•−•",   "s": "•••",   "t": "−",
-			"u": "••−",   "v": "•••−",  "w": "•−−",   "x": "−••−",
-			"y": "−•−−",  "z": "−−••",
+		var morseCodes = {};
+		var latinChars = {
+			"a": ".-",    "b": "-...",  "c": "-.-.",  "d": "-..",
+			"e": ".",     "f": "..-.",  "g": "--.",   "h": "....",
+			"i": "..",    "j": ".---",  "k": "-.-",   "l": ".-..",
+			"m": "--",    "n": "-.",    "o": "---",   "p": ".--.",
+			"q": "--.-",  "r": ".-.",   "s": "...",   "t": "-",
+			"u": "..-",   "v": "...-",  "w": ".--",   "x": "-..-",
+			"y": "-.--",  "z": "--..",
 
-			"1": "•−−−−", "2": "••−−−", "3": "•••−−", "4": "••••−", "5": "•••••",
-			"6": "−••••", "7": "−−•••", "8": "−−−••", "9": "−−−−•", "0": "−−−−−",
+			"1": ".----", "2": "..---", "3": "...--", "4": "....-", "5": ".....",
+			"6": "-....", "7": "--...", "8": "---..", "9": "----.", "0": "-----",
 	    };
+		var isMorse = !string.match(/[^\s.-]/);
+		var resultMassive = isMorse ? string.match(/(\s*\S+)/g) : string.match(/(\s*)(\S)/g);
 
-	    var result = "";
-
-		for(code in codes) {
-			codes[codes[code]] = code;
+		for (code in latinChars) {
+			morseCodes[latinChars[code]] = code;
 		};
 
-		//if it morse code, comvert to latim
-		if (string.match(/[•−]/)) {
-			var mass = string.split(/([•−]+)/g);
+		for (index in resultMassive) {
+			var mathed = resultMassive[index].match(/^(\s*)(\S+)/);
 
-			for(index in mass) {
-				if ("   " === mass[index].slice(0, 3)) {
-					mass[index] = mass[index].slice(2);
-				}
-				else if (" " === mass[index].slice(0, 1)) {
-					mass[index] = mass[index].slice(1);
-				}
+			if (isMorse) {
+				mathed[1] = (1 < mathed[1].length) ? " " : "";
+				resultMassive[index] = mathed[1] + (morseCodes[mathed[2]] || "?");
 			}
-
-		}
-		else {
-			var mass = string.split(/([A-z])/g);
+			else {
+				mathed[1] = mathed[1].length ? "  " : "";
+				resultMassive[index] = mathed[1] + (latinChars[mathed[2]] || "?");
+			}
 		}
 
-		for(charIndex in mass) {
-			if (codes[mass[charIndex]]) {
-				result += codes[mass[charIndex]];
-
-				continue;
-			}
-
-			result += mass[charIndex];
-		};
-
-		// m["yellow"](mass, string, result)
-
-	    return result;
+		return resultMassive.join(isMorse ? "" : " ");
 	}
 
 	//
@@ -221,7 +206,7 @@
 						var isDot = (upDiff < (m["memory time for dot"] + 75)) ? true : false;
 
 						m["memory time for dot"] = isDot ? upDiff : m["memory time for dot"];
-						m["memory input message"] += isDot ? "•" : "−";
+						m["memory input message"] += isDot ? "." : "-";
 						m["yellow"](m["memory time for dot"]);
 						m["yellow"](m["library morse"](m["memory input message"]), m["memory input message"])
 						
