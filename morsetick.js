@@ -120,19 +120,19 @@
 
 	m["green"] = function() {
 		if (arguments.length && m["option program debug mode"] && console && ("function" === typeof console.log)) {
-			console.log("morsetick OK: ", arguments);
+			console.log("morsetick " + m["option program version"] + ", OK: ", arguments);
 		}
 	};
 
 	m["yellow"] = function() {
 		if (arguments.length && m["option program debug mode"] && console && ("function" === typeof console.error)) {
-			console.error("morsetick LOG: ", arguments);
+			console.error("morsetick " + m["option program version"] + ", LOG: ", arguments);
 		}
 	};
 
 	m["red"] = function() {
 		if (arguments.length && m["option program debug mode"] && console && ("function" === typeof console.error)) {
-			console.error("morsetick ERROR: ", arguments);
+			console.error("morsetick " + m["option program version"] + ", ERROR: ", arguments);
 		}
 
 		return null;
