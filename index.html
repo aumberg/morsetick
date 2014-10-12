@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>morsetick - ...</title>
+	<script type="text/javascript" src="morsetick.js"></script>
+	<script type="text/javascript">
+		if ("?happy" === location.search) {
+			location.href = "http://elisto03e.music.yandex.ru/get-mp3/6a7b0a8ca349e36da9ee73a38371ee27/502699c19148d/11/data-0.43:10892946601:5586650?track-id=16549426&play=false&experiments=%7B%22similarities%22%3A%22default%22%2C%22genreRadio%22%3A%22matrixnet-default-copy%22%2C%22newMusic%22%3A%22no%22%2C%22trackClick%22%3A%22no%22%2C%22recommendedArtists%22%3A%22suggest%22%2C%22adv%22%3A%22default%22%2C%22myMusicButton%22%3A%22no%22%7D&from=web-album_track-track-track-main&albumId=1871617";
+		}
+
+		$ = morsetick.$;
+
+		$(function () {
+			var locate = document.location.href
+			var url = "javascript:(function(){var script=document.createElement('script');script.src='http://aumberg.github.io/morsetick/morsetick.js';document.body.appendChild(script);}())";
+
+			$("#option_program_description").text(morsetick["option program description"]);
+			$(".option_program_bookmark").attr("href", url);
+			$("#option_program_version").text(morsetick["option program version"]);
+
+			$(window)
+				.on("keyup.morsetick", function(event) {
+					if (!morsetick["memory input message"]) {
+						return;
+					}
+
+					var request = morsetick["library morse"](morsetick["memory input message"]);
+					var doc = document.documentElement.outerHTML || "";
+					var links = morsetick["find links"](request, doc).join("\n");
+
+					$("#memory_dot_duration").text(morsetick["memory dot duration"]);
+					$("#latin_text").text(request);
+					$("#morse_code").text(morsetick["memory input message"]);
+					$("#links_found").val(links);
+				});
+		})
+	</script>
+</head>
+<body style="height:2000px; background-color:#DDD;">
+	<div>
+		<h3>
+			<div style="text-align:center;">
+				<br/>
+				<br/>
+				<a href="https://github.com/aumberg/morsetick">morsetick</a>
+				- <span id="option_program_description"></span>
+				<br/>
+				<br/>
+				version <span id="option_program_version"> - program not loaded</span>
+			</div>
+		</h3>
+	</div>
+	<ul>
+		<li>
+			<p>
+				Get started
+			</p>
+			<ol>
+				<li>
+					Just press "control" key, or click on page. Try to type "e", "b", "g", "d", "a"
+					<!-- , or <a href="?happy">"happy"</a> -->
+				</li>
+				<li>
+					If on page found more then one link, you can pick link by type number of position, in next call
+				</li>
+				<li>
+					You can download project <a href="https://github.com/aumberg/morsetick">source</a> to local device, use like media player, or drag and drop to bookmarks bar ->  <a class="option_program_bookmark">morsetick</a>
+				</li>
+			</ol>
+		</li>
+		<li>
+			<p>
+				Find (dot duration - <span id="memory_dot_duration">100</span>)
+			</p>
+			<ol>
+				<li>
+					<textarea id="latin_text" readonly rows="1" style="width:90%;font-size:30px;"></textarea>
+				</li>
+				<li>
+					<textarea id="morse_code" readonly rows="1" style="width:90%;font-size:30px;"></textarea>
+				</li>
+			</ol>
+		</li>
+		<li>
+			<p>
+				Found
+			</p>
+			<ol>
+				<li>
+					<textarea id="links_found" readonly rows="2" style="width:90%"></textarea>
+				</li>
+			</ol>
+		</li>
+		<li>
+			<p>
+				Audio links from www.html5guitartuner.com
+			</p>
+			<ol>
+				<li>
+					<a href="http://www.html5guitartuner.com/notes/06-guitar-high-e-string.mp3">high e</a>
+				</li>
+				<li>
+					<a href="http://www.html5guitartuner.com/notes/05-guitar-b-string.mp3">b</a>
+				</li>
+				<li>
+					<a href="http://www.html5guitartuner.com/notes/04-guitar-g-string.mp3">g</a>
+				</li>
+				<li>
+					<a href="http://www.html5guitartuner.com/notes/03-guitar-d-string.mp3">d</a>
+				</li>
+				<li>
+					<a href="http://www.html5guitartuner.com/notes/02-guitar-a-string.mp3">a</a>
+				</li>
+				<li>
+					<a href="http://www.html5guitartuner.com/notes/01-guitar-low-e-string.mp3">low e</a>
+				</li>
+			</ol>
+		</li>
+	</ul>
+</body>
+</html>
