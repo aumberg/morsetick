@@ -3,11 +3,15 @@
 <head>
 	<title>morsetick - ...</title>
 	<script type="text/javascript" src="morsetick.js"></script>
-	<script type="text/javascript">
-		if ("?happy" === location.search) {
-			location.href = "http://elisto03e.music.yandex.ru/get-mp3/6a7b0a8ca349e36da9ee73a38371ee27/502699c19148d/11/data-0.43:10892946601:5586650?track-id=16549426&play=false&experiments=%7B%22similarities%22%3A%22default%22%2C%22genreRadio%22%3A%22matrixnet-default-copy%22%2C%22newMusic%22%3A%22no%22%2C%22trackClick%22%3A%22no%22%2C%22recommendedArtists%22%3A%22suggest%22%2C%22adv%22%3A%22default%22%2C%22myMusicButton%22%3A%22no%22%7D&from=web-album_track-track-track-main&albumId=1871617";
+	<style type="text/css">
+		table{
+		    border: 1px solid black;
+		   /* table-layout: fixed;*/
+		    font-size: 25px;
+		    width:90%
 		}
-
+	</style>
+	<script type="text/javascript">
 		$ = morsetick.$;
 
 		$(function () {
@@ -26,12 +30,19 @@
 
 					var request = morsetick["library morse"](morsetick["memory input message"]);
 					var doc = document.documentElement.outerHTML || "";
-					var links = morsetick["find links"](request, doc).join("\n");
 
 					$("#memory_dot_duration").text(morsetick["memory dot duration"]);
 					$("#latin_text").text(request);
 					$("#morse_code").text(morsetick["memory input message"]);
-					$("#links_found").val(links);
+
+					var html = "";
+
+					$(":visible:not(:text)").each(function() {
+						html += "\n" + morsetick["self element clone"](this)[0].outerHTML;
+					});
+
+					var found = morsetick["find links"](html, request)
+					$("#links_found").val(found.join("\n\n"));
 				});
 		})
 	</script>
@@ -40,8 +51,6 @@
 	<div>
 		<h3>
 			<div style="text-align:center;">
-				<br/>
-				<br/>
 				<a href="https://github.com/aumberg/morsetick">morsetick</a>
 				- <span id="option_program_description"></span>
 				<br/>
@@ -57,14 +66,37 @@
 			</p>
 			<ol>
 				<li>
-					Just press "control" key, or click on page. Try to type "e", "b", "g", "d", "a"
-					<!-- , or <a href="?happy">"happy"</a> -->
+					Just press "control" key, or click on page. Try to type 
+
+					<a href="http://www.html5guitartuner.com/notes/06-guitar-high-e-string.mp3">"high e"</a>
+					, <a href="http://www.html5guitartuner.com/notes/05-guitar-b-string.mp3">"b"</a>
+					, <a href="http://www.html5guitartuner.com/notes/04-guitar-g-string.mp3">"g"</a>
+					, <a href="http://www.html5guitartuner.com/notes/03-guitar-d-string.mp3">"d"</a>
+					, <a href="http://www.html5guitartuner.com/notes/02-guitar-a-string.mp3">"a"</a>
+					, <a href="http://www.html5guitartuner.com/notes/01-guitar-low-e-string.mp3">"low e"</a>
+					, or <a href="http://elisto03e.music.yandex.ru/get-mp3/6a7b0a8ca349e36da9ee73a38371ee27/502699c19148d/11/data-0.43:10892946601:5586650?track-id=16549426&play=false&experiments=%7B%22similarities%22%3A%22default%22%2C%22genreRadio%22%3A%22matrixnet-default-copy%22%2C%22newMusic%22%3A%22no%22%2C%22trackClick%22%3A%22no%22%2C%22recommendedArtists%22%3A%22suggest%22%2C%22adv%22%3A%22default%22%2C%22myMusicButton%22%3A%22no%22%7D&from=web-album_track-track-track-main&albumId=1871617">"hello"</a> 
 				</li>
 				<li>
 					If on page found more then one link, you can pick link by type number of position, in next call
 				</li>
 				<li>
-					You can download project <a href="https://github.com/aumberg/morsetick">source</a> to local device, use like media player, or drag and drop to bookmarks bar ->  <a class="option_program_bookmark">morsetick</a>
+					You can download project <a href="https://github.com/aumberg/morsetick">source</a> to local device, use like media player, or drag and drop that link to bookmarks bar ->  <a class="option_program_bookmark">morsetick</a>
+				</li>
+				<li>
+					Learn it
+					<table>
+						<caption>Morse code</caption>
+						<tr><td>a</td><td>.-</td>    <td>b</td><td>-...</td>  <td>c</td><td>-.-.</td>  <td>d</td><td>-..</td><tr>
+						<tr><td>e</td><td>.</td>     <td>f</td><td>..-.</td>  <td>g</td><td>--.</td>   <td>h</td><td>....</td><tr>
+						<tr><td>i</td><td>..</td>    <td>j</td><td>.---</td>  <td>k</td><td>-.-</td>   <td>l</td><td>.-..</td><tr>
+						<tr><td>m</td><td>--</td>    <td>n</td><td>-.</td>    <td>o</td><td>---</td>   <td>p</td><td>.--.</td><tr>
+						<tr><td>q</td><td>--.-</td>  <td>r</td><td>.-.</td>   <td>s</td><td>...</td>   <td>t</td><td>-</td><tr>
+						<tr><td>u</td><td>..-</td>   <td>v</td><td>...-</td>  <td>w</td><td>.--</td>   <td>x</td><td>-..-</td><tr>
+						<tr><td>y</td><td>-.--</td>  <td>z</td><td>--..</td></tr>
+						<tr><td><br></td></tr>
+						<tr><td>1</td><td>.----</td> <td>2</td><td>..---</td> <td>3</td><td>...--</td> <td>4</td><td>....-</td> <td>5</td><td>.....</td><tr>
+						<tr><td>6</td><td>-....</td> <td>7</td><td>--...</td> <td>8</td><td>---..</td> <td>9</td><td>----.</td> <td>0</td><td>-----</td><tr>
+					</table>
 				</li>
 			</ol>
 		</li>
@@ -74,10 +106,10 @@
 			</p>
 			<ol>
 				<li>
-					<textarea id="latin_text" readonly rows="1" style="width:90%;font-size:30px;"></textarea>
+					<textarea id="latin_text" readonly rows="1" style="width:90%;font-size:25px;"></textarea>
 				</li>
 				<li>
-					<textarea id="morse_code" readonly rows="1" style="width:90%;font-size:30px;"></textarea>
+					<textarea id="morse_code" readonly rows="1" style="width:90%;font-size:25px;"></textarea>
 				</li>
 			</ol>
 		</li>
@@ -86,34 +118,7 @@
 				Found
 			</p>
 			<ol>
-				<li>
-					<textarea id="links_found" readonly rows="2" style="width:90%"></textarea>
-				</li>
-			</ol>
-		</li>
-		<li>
-			<p>
-				Audio links from www.html5guitartuner.com
-			</p>
-			<ol>
-				<li>
-					<a href="http://www.html5guitartuner.com/notes/06-guitar-high-e-string.mp3">high e</a>
-				</li>
-				<li>
-					<a href="http://www.html5guitartuner.com/notes/05-guitar-b-string.mp3">b</a>
-				</li>
-				<li>
-					<a href="http://www.html5guitartuner.com/notes/04-guitar-g-string.mp3">g</a>
-				</li>
-				<li>
-					<a href="http://www.html5guitartuner.com/notes/03-guitar-d-string.mp3">d</a>
-				</li>
-				<li>
-					<a href="http://www.html5guitartuner.com/notes/02-guitar-a-string.mp3">a</a>
-				</li>
-				<li>
-					<a href="http://www.html5guitartuner.com/notes/01-guitar-low-e-string.mp3">low e</a>
-				</li>
+				<textarea id="links_found" readonly rows="10" style="width:90%"></textarea>
 			</ol>
 		</li>
 	</ul>

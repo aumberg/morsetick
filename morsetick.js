@@ -30,11 +30,6 @@
 	var $ = m.$ = window.jQuery.noConflict(true);
 	$.fn.reverse = [].reverse;
 
-	//
-	
-
-	// library
-
 	//morse code comvert to latin, or vice versa
 	m["library morse"] = function(string) {
 		var morseCodes = {};
@@ -82,35 +77,51 @@
 		return string.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
 	}
 
+	m["self element clone"] = function(element) {
+		var clone 	= $(element).clone();
+		clone.children().remove();
+
+		return clone;
+	}
+
+	m["self value"] = function(element) {
+		return (element.val() || m["self element clone"](element).text());
+	}
+
 	//
-	m["find links"] = function(request, string) {
-		var links = [];
+	m["find links"] = function(string, request) {
+		request = (request || "");
+
 		var exp = "[^\\n<>\"']*";
-		var exp2 = "[^\\n<>\"'/]*";
-		var escaped = m["library escape regexp string"](request);
-		var first = exp + "\\b" + escaped + "\\b" + exp2;
-		var second = exp + "\\b" + escaped.replace(/\\ /g, "\\b" + exp + "\\b") + "\\b" + exp;
-		var req = [first, second];
+		var left = "(^|[^\"'\\s])(/|[A-z]+\\://)";
+		var right = "($|[^\"'\\s])";
+		var linkExp = new RegExp(left + exp + right, "img");
+		var escaped = "\\b" + m["library escape regexp string"](request) + "\\b";
+		// var hrefExp = "<a[^>]*href=[\"'][^>]+[\"'][^>]*>([^<]*" + escaped2 + "[^<]*)<";
+		var htmlExp = "<[^>]*>[^<]*\\b" + escaped + "\\b[^<]*";
+		var req = [new RegExp(htmlExp, "img")]
+		var links = [];
+		var html = [];
+
+		if (request) {
+			var htmlExp2 = new RegExp(htmlExp.replace(/\\ /g, "\\b" + exp + "\\b"), "img");
+
+			req.push(htmlExp2);
+		}
 
 		for (var i in req) {
-			var oou = new RegExp("(^|\"|'|\\s+)(/|[A-z]+\\://)" + req[i] + "($|\"|'|\\s+)", "img");
-			var match = string.match(oou);
+			html = html.concat(string.match(req[i]) || []);
 
-			if (match) {
-				for (var i = 0; i < match.length; i++) {
-					var link = match[i].replace(/^\s+|\"|'|\s+$/g, "");
-
-					if (-1 === links.indexOf(link)) {
-						links.push(link);
-					}
-					// element find by jquery *:contains()
-				}
-
-				// break;
+			if (html.length) {
+				break;
 			}
 		}
 
-		// m["green"](request, oou, match);
+		for (var i in html) {
+			links = links.concat(html[i].match(linkExp) || []);
+		}
+
+		// m["green"](request, links);
 		// m["green"](match, links, oou);
 
 		return links;
@@ -252,8 +263,15 @@
 				var isDot = (upDiff < (m["memory dot duration"] + 75)) ? true : false;
 
 				m["memory keyboard downtime"] = undefined;
-				m["memory dot duration"] = isDot ? upDiff : m["memory dot duration"];
-				m["memory input message"] += isDot ? "." : "-";
+
+				if (isDot) {
+					m["memory dot duration"] = upDiff;
+					m["memory input message"] += ".";
+				}
+				else {
+					m["memory dot duration"] = upDiff / 2;
+					m["memory input message"] += "-";
+				}
 
 				var request = m["library morse"](m["memory input message"]);
 				var doc = document.documentElement.outerHTML || "";
@@ -278,37 +296,46 @@
 					var key = $.trim(splitted[0]);
 					var value = m[key];
 					var position = parseInt(request);
-					var link = "";
+					var findedPosition = 0;
 
 					m["memory input message"] = "";
 
 					if (position) {
-						var pastMsg = m["library morse"](m["memory past input message"]);
-						var links = m["find links"](pastMsg, doc);
-
-						link = (links[position] || links[links.length - 1]);
-					}
-					else if ("function" === typeof value) {
-						link = value(splitted.slice(2).join(""));
+						request = m["library morse"](m["memory past input message"]);
 					}
 					else {
-						link = m["find links"](request, doc)[0];
+						position = 1;
 					}
 
-					if (link && ("string" === typeof link)) {
+					var html = "";
+					var elements = $();
+
+					$(":visible:not(:text)").each(function() {
+						html += "\n" + m["self element clone"](this)[0].outerHTML;
+					});
+
+					var found = m["find links"](html, request);
+					var position = found[position] ? position : found.length;
+					var link = found[position - 1];
+					var element = $();
+					// find element
+					if (link) {
+						link =  link.replace(/&amp;/g, "&");
+						element = $("a[href='" + link + "'], *:contains('" + link + "')")
+
 						m["audio play"](link);
 						m["green"]("play " + link);
 					}
 					else {
 						m["red"]("can't find link - " + request);
 					}
+
+					element.attr("tabindex", (element.attr("tabindex") || "0")).focus();
 				}, m["memory dot duration"] * 16);
 			});
 	});
 
-	m["memory timeout clear input"];
-	m["memory timeout char space"];
-	m["memory timeout word space"];
+
 	m["memory audio"] = new Audio(); // window.document.createElement("audio");
 	m["memory audio"].onerror = function() {
 		m["red"]("can't load or it's not audio")
@@ -322,12 +349,13 @@
 	m["memory oscillator gain"].connect(m["memory AudioContext"].destination);
 	m["memory oscillator"].start(0);
 	m["memory dot duration"] = 100;
-	m["memory last audio source"] = "";
+	m["memory input message"] = "";
 	m["memory keyboard downtime"];
 	m["memory keyboard uptime"];
-	m["memory input message"] = "";
+	m["memory last audio source"] = "";
 	m["memory past input message"] = "";
 	m["memory program status"] = "off";
+	m["memory timeout char space"];
 	m["memory timeout clear input"];
 	m["memory timeout word space"];
 }());
