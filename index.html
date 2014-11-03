@@ -4,50 +4,122 @@
 	<title>morsetick - ...</title>
 	<script type="text/javascript" src="morsetick.js"></script>
 	<style type="text/css">
-		table{
-		    border: 1px solid black;
-		   /* table-layout: fixed;*/
-		    font-size: 25px;
-		    width:90%
+		body { 
+			height:2000px;
+			background-color:#DDD;
+			margin:20px;
+		}
+
+		a {
+			font-size: 20px;
+		}
+
+		table {
+			border: 1px solid black;
+			font-size: 30px;
+			width:100%;
+			padding:20px;
+		}
+
+		table caption {
+			margin: 40px 0px 10px 0px;
+		    font-size: 20px;
+		}
+
+		table td {
+		    text-align: center;
+		    color: #005;
+		}
+
+		table th {
+			text-align: left;
+		}
+
+		#latin_text, #morse_code {
+			font-size:25px;
+			width:40%; 
+		}
+
+		#latin_text {
+			float:left;
+		}
+
+		#arrows {
+			float:left;
+			min-width:18%;
+			font-size:50px;
+			text-align:center;
 		}
 	</style>
 	<script type="text/javascript">
 		$ = morsetick.$;
 
 		$(function () {
-			var locate = document.location.href
+			var locate = document.location.href;
 			var url = "javascript:(function(){var script=document.createElement('script');script.src='http://aumberg.github.io/morsetick/morsetick.js';document.body.appendChild(script);}())";
 
 			$("#option_program_description").text(morsetick["option program description"]);
 			$(".option_program_bookmark").attr("href", url);
 			$("#option_program_version").text(morsetick["option program version"]);
 
-			$(window)
-				.on("keyup.morsetick", function(event) {
-					if (!morsetick["memory input message"]) {
-						return;
+			$("#latin_text, #morse_code").keyup(function(event) {
+				var converted = morsetick["library morse"]($(this).val());
+
+				clearTimeout(morsetick["memory timeout call"]);
+				$("#latin_text, #morse_code").not(this).val(converted);
+
+				morsetick["memory timeout call"] = setTimeout(function() {
+					var request = $("#latin_text").val();
+
+					if (!request.match(/[^\s.-]/)) {
+						request = $("#morse_code").val();
 					}
 
-					var request = morsetick["library morse"](morsetick["memory input message"]);
-					var doc = document.documentElement.outerHTML || "";
+					morsetick["search link and play"](request);
+				}, 1000);
 
-					$("#memory_dot_duration").text(morsetick["memory dot duration"]);
-					$("#latin_text").text(request);
-					$("#morse_code").text(morsetick["memory input message"]);
+				event.stopPropagation();
+			});
+
+			morsetick["on event keyup"] = function(request) {
+				$("#memory_dot_duration").text(morsetick["memory dot duration"]);
+				$("#latin_text").val(morsetick["memory input latin message"]);
+				$("#morse_code").val(morsetick["memory input morse message"]);
+				$("#found").text("Found 0 traks");
+			};
+
+			morsetick["on event call"] = function(event) {
+				var length = morsetick["memory links found"].length;
+
+				if (length) {
+					$("#found").text("Found " + length + " traks");
 
 					var html = "";
 
-					$(":visible:not(:text)").each(function() {
-						html += "\n" + morsetick["self element clone"](this)[0].outerHTML;
-					});
+					for (var i = 0; i < morsetick["memory history"].length; i++) {
+						var h = morsetick["memory history"][i];
 
-					var found = morsetick["find links"](html, request)
-					$("#links_found").val(found.join("\n\n"));
-				});
+						html += "<li>&nbsp;&nbsp;&nbsp;" + h["date"].toLocaleString();
+						html += "&nbsp;&nbsp;&nbsp;";
+
+
+						html += "<a href='" + h["source"] + "' target='_blank'>" + h["latin"] + "</a>"
+
+						if (1 < h["position"]) {
+							html += "&nbsp;&nbsp;&nbsp;";
+							html += "(" + h["position"] + " position)";
+						}
+						html += "</li>";
+					};
+
+					
+					$("#mmm_links").html(html);
+				}
+			};
 		})
 	</script>
 </head>
-<body style="height:2000px; background-color:#DDD;">
+<body>
 	<div>
 		<h3>
 			<div style="text-align:center;">
@@ -61,65 +133,80 @@
 	</div>
 	<ul>
 		<li>
+			<span id="found">Found 0 traks</span> 
+			(dot duration - <span id="memory_dot_duration">100</span>).
+		</li>
+	</ul>
+				<textarea id="latin_text" rows="2" tabindex="1"></textarea>
+				<div id="arrows"> ⇄ </div>
+				<textarea id="morse_code" rows="2" tabindex="2"></textarea>
+	<table>
+		<caption><b>Morse code</b></caption>
+		<tr><td>a</td><th>.-</th>    <td>b</td><th>-...</th>  <td>c</td><th>-.-.</th>  <td>d</td><th>-..</th><tr>
+		<tr><td>e</td><th>.</th>     <td>f</td><th>..-.</th>  <td>g</td><th>--.</th>   <td>h</td><th>....</th><tr>
+		<tr><td>i</td><th>..</th>    <td>j</td><th>.---</th>  <td>k</td><th>-.-</th>   <td>l</td><th>.-..</th><tr>
+		<tr><td>m</td><th>--</th>    <td>n</td><th>-.</th>    <td>o</td><th>---</th>   <td>p</td><th>.--.</th><tr>
+		<tr><td>q</td><th>--.-</th>  <td>r</td><th>.-.</th>   <td>s</td><th>...</th>   <td>t</td><th>-</th><tr>
+		<tr><td>u</td><th>..-</th>   <td>v</td><th>...-</th>  <td>w</td><th>.--</th>   <td>x</td><th>-..-</th><tr>
+		<tr><td>y</td><th>-.--</th>  <td>z</td><th>--..</th></tr>
+		<tr><td><br></td></tr>
+		<tr><td>1</td><th>.----</th> <td>2</td><th>..---</th> <td>3</td><th>...--</th> <td>4</td><th>....-</th> <td>5</td><th>.....</th><tr>
+		<tr><td>6</td><th>-....</th> <td>7</td><th>--...</th> <td>8</td><th>---..</th> <td>9</td><th>----.</th> <td>0</td><th>-----</th><tr>
+	</table>
+
+	<ul>
+		<li>
 			<p>
 				Get started
 			</p>
-			<ol>
+			<ul>
 				<li>
-					Just press "control" key, or click on page. Try to type 
-
-					<a href="http://www.html5guitartuner.com/notes/06-guitar-high-e-string.mp3">"high e"</a>
-					, <a href="http://www.html5guitartuner.com/notes/05-guitar-b-string.mp3">"b"</a>
-					, <a href="http://www.html5guitartuner.com/notes/04-guitar-g-string.mp3">"g"</a>
-					, <a href="http://www.html5guitartuner.com/notes/03-guitar-d-string.mp3">"d"</a>
-					, <a href="http://www.html5guitartuner.com/notes/02-guitar-a-string.mp3">"a"</a>
-					, <a href="http://www.html5guitartuner.com/notes/01-guitar-low-e-string.mp3">"low e"</a>
-					, or <a href="http://elisto03e.music.yandex.ru/get-mp3/6a7b0a8ca349e36da9ee73a38371ee27/502699c19148d/11/data-0.43:10892946601:5586650?track-id=16549426&play=false&experiments=%7B%22similarities%22%3A%22default%22%2C%22genreRadio%22%3A%22matrixnet-default-copy%22%2C%22newMusic%22%3A%22no%22%2C%22trackClick%22%3A%22no%22%2C%22recommendedArtists%22%3A%22suggest%22%2C%22adv%22%3A%22default%22%2C%22myMusicButton%22%3A%22no%22%7D&from=web-album_track-track-track-main&albumId=1871617">"hello"</a> 
+					Ok, just press <b>control</b> key, or click on page. Type some text, like 
+					<a href="http://www.html5guitartuner.com/notes/06-guitar-high-e-string.mp3" target="_blank">high e</a>
+					, <a href="http://www.html5guitartuner.com/notes/05-guitar-b-string.mp3" target="_blank">b</a>
+					, <a href="http://www.html5guitartuner.com/notes/04-guitar-g-string.mp3" target="_blank">g</a>
+					, <a href="http://www.html5guitartuner.com/notes/03-guitar-d-string.mp3" target="_blank">d</a>
+					, <a href="http://www.html5guitartuner.com/notes/02-guitar-a-string.mp3" target="_blank">a</a>
+					, <a href="http://www.html5guitartuner.com/notes/01-guitar-low-e-string.mp3" target="_blank">low e</a>
+					and <b>morsetick</b> starts search music in that page and 
+					<a href="https://soundcloud.com/" target="_blank">
+						soundcloud
+					</a>
 				</li>
 				<li>
-					If on page found more then one link, you can pick link by type number of position, in next call
+					You can type
+					<select>
+						<option selected="selected">
+							&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+							&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+							&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+							COMMAND
+						</option>
+						<option>e - just stop sound</option>
+						<option>e r - resume play</option>
+						<option>e (number) - change sound position</option>
+						<option>e e (some text) - search with E char at beginning</option>
+					</select>
+					for change sound position or something else
 				</li>
 				<li>
-					You can download project <a href="https://github.com/aumberg/morsetick">source</a> to local device, use like media player, or drag and drop that link to bookmarks bar ->  <a class="option_program_bookmark">morsetick</a>
+					Drag and drop that link to bookmarks bar
+					<a class="option_program_bookmark">
+						morsetick
+					</a>
+					, or download project
+					<a href="https://github.com/aumberg/morsetick">
+						source
+					</a>
+					to your local device and add sound links in HTML 
 				</li>
 				<li>
-					Learn it
-					<table>
-						<caption>Morse code</caption>
-						<tr><td>a</td><td>.-</td>    <td>b</td><td>-...</td>  <td>c</td><td>-.-.</td>  <td>d</td><td>-..</td><tr>
-						<tr><td>e</td><td>.</td>     <td>f</td><td>..-.</td>  <td>g</td><td>--.</td>   <td>h</td><td>....</td><tr>
-						<tr><td>i</td><td>..</td>    <td>j</td><td>.---</td>  <td>k</td><td>-.-</td>   <td>l</td><td>.-..</td><tr>
-						<tr><td>m</td><td>--</td>    <td>n</td><td>-.</td>    <td>o</td><td>---</td>   <td>p</td><td>.--.</td><tr>
-						<tr><td>q</td><td>--.-</td>  <td>r</td><td>.-.</td>   <td>s</td><td>...</td>   <td>t</td><td>-</td><tr>
-						<tr><td>u</td><td>..-</td>   <td>v</td><td>...-</td>  <td>w</td><td>.--</td>   <td>x</td><td>-..-</td><tr>
-						<tr><td>y</td><td>-.--</td>  <td>z</td><td>--..</td></tr>
-						<tr><td><br></td></tr>
-						<tr><td>1</td><td>.----</td> <td>2</td><td>..---</td> <td>3</td><td>...--</td> <td>4</td><td>....-</td> <td>5</td><td>.....</td><tr>
-						<tr><td>6</td><td>-....</td> <td>7</td><td>--...</td> <td>8</td><td>---..</td> <td>9</td><td>----.</td> <td>0</td><td>-----</td><tr>
-					</table>
+					Mmm... links )
+					<ol>
+						<span id="mmm_links"></span>
+					</ol>
 				</li>
-			</ol>
-		</li>
-		<li>
-			<p>
-				Find (dot duration - <span id="memory_dot_duration">100</span>)
-			</p>
-			<ol>
-				<li>
-					<textarea id="latin_text" readonly rows="1" style="width:90%;font-size:25px;"></textarea>
-				</li>
-				<li>
-					<textarea id="morse_code" readonly rows="1" style="width:90%;font-size:25px;"></textarea>
-				</li>
-			</ol>
-		</li>
-		<li>
-			<p>
-				Found
-			</p>
-			<ol>
-				<textarea id="links_found" readonly rows="10" style="width:90%"></textarea>
-			</ol>
+			</ul>
 		</li>
 	</ul>
 </body>
