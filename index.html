@@ -35,6 +35,10 @@
 			text-align: left;
 		}
 
+		ul li {
+			margin: 20px;
+		}
+
 		#latin_text, #morse_code {
 			font-size:25px;
 			width:40%; 
@@ -81,40 +85,40 @@
 				event.stopPropagation();
 			});
 
-			morsetick["on event keyup"] = function(request) {
+			morsetick["event keyup"] = function(request) {
 				$("#memory_dot_duration").text(morsetick["memory dot duration"]);
 				$("#latin_text").val(morsetick["memory input latin message"]);
 				$("#morse_code").val(morsetick["memory input morse message"]);
 				$("#found").text("Found 0 traks");
 			};
 
-			morsetick["on event call"] = function(event) {
-				var length = morsetick["memory links found"].length;
+			morsetick["event play link"] = function(event) {
+				if (!morsetick["memory links found"].length) {
+					$("#latin_text").val("");
+					$("#morse_code").val("");
 
-				if (length) {
-					$("#found").text("Found " + length + " traks");
-
-					var html = "";
-
-					for (var i = 0; i < morsetick["memory history"].length; i++) {
-						var h = morsetick["memory history"][i];
-
-						html += "<li>&nbsp;&nbsp;&nbsp;" + h["date"].toLocaleString();
-						html += "&nbsp;&nbsp;&nbsp;";
-
-
-						html += "<a href='" + h["source"] + "' target='_blank'>" + h["latin"] + "</a>"
-
-						if (1 < h["position"]) {
-							html += "&nbsp;&nbsp;&nbsp;";
-							html += "(" + h["position"] + " position)";
-						}
-						html += "</li>";
-					};
-
-					
-					$("#mmm_links").html(html);
+					return;
 				}
+
+				var html = "";
+
+				$("#found").text("Found " + morsetick["memory links found"].length + " traks");
+
+				for (var i = 0; i < morsetick["memory history"].length; i++) {
+					var h = morsetick["memory history"][i];
+
+					html += "<li>&nbsp;&nbsp;&nbsp;" + h["date"].toLocaleString();
+					html += "&nbsp;&nbsp;&nbsp;";
+					html += "<a href='" + h["source"] + "' target='_blank'>" + h["latin"] + "</a>"
+
+					if (1 < h["position"]) {
+						html += "&nbsp;&nbsp;&nbsp;";
+						html += "(" + h["position"] + " position)";
+					}
+					html += "</li>";
+				};
+				
+				$("#mmm_links").html(html);
 			};
 		})
 	</script>
@@ -137,9 +141,11 @@
 			(dot duration - <span id="memory_dot_duration">100</span>).
 		</li>
 	</ul>
-				<textarea id="latin_text" rows="2" tabindex="1"></textarea>
-				<div id="arrows"> ⇄ </div>
-				<textarea id="morse_code" rows="2" tabindex="2"></textarea>
+
+	<textarea id="latin_text" rows="2" tabindex="1"></textarea>
+	<div id="arrows"> ⇄ </div>
+	<textarea id="morse_code" rows="2" tabindex="2"></textarea>
+
 	<table>
 		<caption><b>Morse code</b></caption>
 		<tr><td>a</td><th>.-</th>    <td>b</td><th>-...</th>  <td>c</td><th>-.-.</th>  <td>d</td><th>-..</th><tr>
@@ -177,15 +183,15 @@
 					You can type
 					<select>
 						<option selected="selected">
-							&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-							&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-							&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+							&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;
 							COMMAND
 						</option>
-						<option>e - just stop sound</option>
-						<option>e r - resume play</option>
-						<option>e (number) - change sound position</option>
-						<option>e e (some text) - search with E char at beginning</option>
+						<option>e - pause</option>
+						<option>e r - resume</option>
+						<option>e n - next track</option>
+						<option>e p - previous track</option>
+						<option>e (position) - change track</option>
+						<option>e e (text) - search with E word</option>
 					</select>
 					for change sound position or something else
 				</li>
