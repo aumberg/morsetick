@@ -31,6 +31,7 @@
 	m["option program source code"] = "https://github.com/aumberg/morsetick";
 
 	m["option audio volume"] = 75;
+	m["option play next"] = true;
 	m["option soundcloud client id"] = "4c4f5801e905988f9e73b2156c7fb5c4"; //delete, if don't use soundcloud
 
 	//Morse code to latin, or latin to Morse code
@@ -80,34 +81,54 @@
 	};
 
 	m["command"] = function(name, argString) {
+		// pause
 		if (!name) {
 			m["memory link position"] = 0;
 		}
-		else if (parseInt(name)) {
-			m["memory link position"] = parseInt(name);
 
-			var lastInHistory = morsetick["memory history"].slice(-1)[0];
-
-			if (lastInHistory) {
-				m["memory links found"] = lastInHistory["links"];
-				m["memory input morse message"] = lastInHistory["morse"];
-				m["memory input latin message"] = lastInHistory["latin"];
-			}
-		}
+		// resume
 		else if ("r" === name) {
 			m["audio resume"]();
 
 			return;
 		}
+		// actions with last request
 		else {
-			m["memory link position"] = 0;			
-			m["red"]("bad command");
+			var lastRequest = morsetick["memory history"].slice(-1)[0];
+
+			if (!lastRequest) {
+				m["memory link position"] = 0;
+				m["link play"]();
+
+				return;
+			}
+
+			m["memory link position"] = lastRequest["position"];
+			m["memory links found"] = lastRequest["links"];
+			m["memory input morse message"] = lastRequest["morse"];
+			m["memory input latin message"] = lastRequest["latin"];
+
+			// change track
+			if (parseInt(name)) {
+				m["memory link position"] = parseInt(name);
+			}
+			// next track
+			else if ("n" === name) {
+				m["memory link position"]++;
+			}
+			// previous track
+			else if ("p" === name) {
+				m["memory link position"]--;
+			}
+			else {
+				m["red"]("bad command");
+				m["memory link position"] = 0;			
+			}
 		}
 
 		m["link play"]();
 	};
 
-	//
 	m["find links"] = function(string, request) {
 		request = (request || "");
 
@@ -149,9 +170,9 @@
 	m["link play"] = function() {
 		var position = m["memory link position"];
 		var links = m["memory links found"];
-		var link = m["memory link source"] = (links[position - 1] || links.slice(-1)[0]);
+		var link = m["memory link source"] = links[m["memory link position"] - 1];
 
-		if (m["memory link source"]) {
+		if (link) {
 			var lastInHistory = m["memory history"].slice(-1)[0];
 
 			if (!lastInHistory || (lastInHistory["memory link source"] !== link)) {
@@ -171,7 +192,7 @@
 			m["red"]("can't play");
 		}
 
-		m["on event call"]();
+		m["event play link"]();
 
 		m["memory input morse message"] = "";
 		m["memory input latin message"] = "";
@@ -181,7 +202,7 @@
 		m["memory is waiting for link play"] = false;
 	};
 
-	m["soundcloud search and play"] = function(request) {
+	m["soundcloud search and play link"] = function(request) {
 		if (!m["option soundcloud client id"]) {
 			return;
 		}
@@ -230,6 +251,12 @@
 	m["search link and play"] = function(request) {
 		request = (request || m["memory input latin message"]);
 
+		if (!request) {
+			m["link play"]();
+
+			return;
+		}
+
 		m["memory input latin message"] = request;
 		m["memory input morse message"] = m["library morse"](request);
 		m["memory is waiting for link play"] = true;
@@ -244,9 +271,10 @@
 
 				return;
 			}
-
+			// search with E word
 			request = m["memory input latin message"] = match[1] + match[2] + match[3];
 			m["memory input morse message"] = m["library morse"](request);
+			//
 		}
 	
 		$(":visible:not(:text)").each(function() {
@@ -258,18 +286,16 @@
 		if (!m["memory links found"].length) {
 			// link =  link.replace(/&amp;/g, "&");
 			// element.attr("tabindex", (element.attr("tabindex") || "0")).focus();
-			m["soundcloud search and play"](request);
+			m["soundcloud search and play link"](request);
 
 			return;
 		}
 
 		m["link play"]();
-	}
-
+	};
 
 	m["off"] = function() {
 		$(window).add($("*", "body")).off(".morsetick .morsetick-control");
-		m["memory program status"] = "off";
 	};
 
 	$(m["on"] = function() {
@@ -300,14 +326,7 @@
 					return;
 				}
 
-				if (("mousedown" === event.type) || "keyup.morsetick" === lastAction) {
-					lastAction = "keydown.morsetick";
-				}
-				else {
-					lastAction = "keyup.morsetick";
-				}
-
-			    var e = $.Event(lastAction);
+			    var e = $.Event("mousedown" === event.type ? "keydown.morsetick" : "keyup.morsetick");
 			    e.which = 17;
 			    $(window).trigger(e);
 			})
@@ -355,9 +374,17 @@
 
 				m["green"](m["memory dot duration"]);
 				m["green"](request, m["memory input morse message"]);
-				m["on event keyup"]();
+				m["event keyup"]();
 
 				m["memory timeout char space"] = setTimeout(function() {
+					if ("?" === m["memory input latin message"].slice(-1)[0]) {
+						m["memory is waiting for link play"] = true;
+						stop();
+						setTimeout(m["link play"], 3000);
+
+						return;
+					}
+
 					m["memory input morse message"] += " ";
 				}, m["memory dot duration"] * 2); // ok ?
 				
@@ -441,9 +468,12 @@
 		return null;
 	};
 
-	m["memory program status"] = "off";
-
 	m["memory audio"] = new Audio(); // window.document.createElement("audio");
+	m["memory audio"].onended = function() {
+		if (m["option play next"]) {
+			m["command"]("n");
+		}
+	};
 	m["memory audio"].onerror = function() {
 		m["red"]("can't load or it's not audio")
 	};
@@ -471,6 +501,6 @@
 	m["memory link source"] = "";
 	m["memory history"] = [];
 
-	m["on event keyup"] = $.noop;
-	m["on event call"] = $.noop;
+	m["event keyup"] = $.noop;
+	m["event play link"] = $.noop;
 }());
