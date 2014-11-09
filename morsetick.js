@@ -31,7 +31,8 @@
 	m["option program source code"] = "https://github.com/aumberg/morsetick";
 
 	m["option audio volume"] = 75;
-	m["option play next"] = true;
+	m["option oscillator frequency"] = 440;
+	m["option play next track"] = true;
 	m["option soundcloud client id"] = "4c4f5801e905988f9e73b2156c7fb5c4"; //delete, if don't use soundcloud
 
 	//Morse code to latin, or latin to Morse code
@@ -42,6 +43,7 @@
 
 		var morseCodes = {};
 		var latinChars = {
+			// Letters
 			"a": ".-",    "b": "-...",  "c": "-.-.",  "d": "-..",
 			"e": ".",     "f": "..-.",  "g": "--.",   "h": "....",
 			"i": "..",    "j": ".---",  "k": "-.-",   "l": ".-..",
@@ -49,7 +51,7 @@
 			"q": "--.-",  "r": ".-.",   "s": "...",   "t": "-",
 			"u": "..-",   "v": "...-",  "w": ".--",   "x": "-..-",
 			"y": "-.--",  "z": "--..",
-
+			// Numbers
 			"1": ".----", "2": "..---", "3": "...--", "4": "....-", "5": ".....",
 			"6": "-....", "7": "--...", "8": "---..", "9": "----.", "0": "-----",
 	    };
@@ -81,52 +83,83 @@
 	};
 
 	m["command"] = function(name, argString) {
-		// pause
-		if (!name) {
+		var lastInHistory = morsetick["memory history"].slice(-1)[0];
+
+		if (lastInHistory) {
+			m["memory link position"] = lastInHistory["position"];
+			m["memory links found"] = lastInHistory["links"];
+			m["memory input morse message"] = lastInHistory["morse"];
+			m["memory input latin message"] = lastInHistory["latin"];
+			m["memory soundcloud traks"] = lastInHistory["soundcloud traks"];
+		}
+
+		// toggle play & pause
+		if (!name && lastInHistory) {
 			m["memory link position"] = 0;
-		}
 
-		// resume
-		else if ("r" === name) {
-			m["audio resume"]();
-
-			return;
-		}
-		// actions with last request
-		else {
-			var lastRequest = morsetick["memory history"].slice(-1)[0];
-
-			if (!lastRequest) {
-				m["memory link position"] = 0;
-				m["link play"]();
+			if (m["memory audio is paused"]) {
+				m["audio resume"]();
+				m["link play"](true);
+				m["memory audio is paused"] = false;
 
 				return;
 			}
-
-			m["memory link position"] = lastRequest["position"];
-			m["memory links found"] = lastRequest["links"];
-			m["memory input morse message"] = lastRequest["morse"];
-			m["memory input latin message"] = lastRequest["latin"];
-
-			// change track
-			if (parseInt(name)) {
-				m["memory link position"] = parseInt(name);
-			}
-			// next track
-			else if ("n" === name) {
-				m["memory link position"]++;
-			}
-			// previous track
-			else if ("p" === name) {
-				m["memory link position"]--;
-			}
-			else {
-				m["red"]("bad command");
-				m["memory link position"] = 0;			
-			}
+		}
+		// change track
+		else if (parseInt(name)) {
+			m["memory link position"] = parseInt(name);
+		}
+		// next track
+		else if ("n" === name) {
+			m["memory link position"]++;
+		}
+		// previous track
+		else if ("p" === name) {
+			m["memory link position"]--;
+		}
+		else if (!lastInHistory) {
+			m["red"]("firstly search music...");		
+			m["clear input"]();
+		}
+		else {
+			m["red"]("bad command");		
+			m["clear input"]();
 		}
 
 		m["link play"]();
+	};
+
+	m["link play"] = function(justClear) {
+		var links = m["memory links found"];
+		var pos = m["memory link position"];
+		var link = m["memory link source"] = links[pos - 1];
+
+		if (link && !justClear) {
+			var objectToHistory = {
+				"morse" : m["memory input morse message"]
+				,"latin" : m["memory input latin message"]
+				,"links" : m["memory links found"]
+				,"position" : m["memory link position"]
+				,"source" : link
+				,"date": new Date()
+				,"soundcloud traks": m["memory soundcloud traks"]
+				,"permalink_url": (m["memory soundcloud traks"][pos - 1] || [])["permalink_url"]
+			}
+
+			m["memory history"].push(objectToHistory);
+			
+			var source = (objectToHistory["permalink_url"] || objectToHistory["source"]);
+			
+			m["audio play"](link);
+			m["green"]("play " + source, objectToHistory);
+		}
+
+		m["event play link"]();
+		m["clear input"]();
+
+		if (!link && !justClear) {
+			m["red"]("don't play");
+		}
 	};
 
 	m["find links"] = function(string, request) {
@@ -167,46 +200,7 @@
 		return links;
 	};
 
-	m["link play"] = function() {
-		var position = m["memory link position"];
-		var links = m["memory links found"];
-		var link = m["memory link source"] = links[m["memory link position"] - 1];
-
-		if (link) {
-			var lastInHistory = m["memory history"].slice(-1)[0];
-
-			if (!lastInHistory || (lastInHistory["memory link source"] !== link)) {
-				m["memory history"].push({
-					"morse" : m["memory input morse message"]
-					,"latin" : m["memory input latin message"]
-					,"links" : m["memory links found"]
-					,"position" : m["memory link position"]
-					,"source" : link
-					,"date": new Date()
-				})
-			}
-
-			m["audio play"](link);
-		}
-		else {
-			m["red"]("can't play");
-		}
-
-		m["event play link"]();
-
-		m["memory input morse message"] = "";
-		m["memory input latin message"] = "";
-		m["memory links found"] = [];
-		m["memory link position"] = 1;
-		m["memory link source"] = "";
-		m["memory is waiting for link play"] = false;
-	};
-
 	m["soundcloud search and play link"] = function(request) {
-		if (!m["option soundcloud client id"]) {
-			return;
-		}
-
 		var param = {
 			"q": request
 			,"client_id": m["option soundcloud client id"]
@@ -232,8 +226,8 @@
 
 							traks[i].stream_url += "?client_id=" + param.client_id;
 							m["memory links found"].push(traks[i].stream_url);
+							m["memory soundcloud traks"].push(traks[i]);
 						}
-
 					}
 					else if (traks.errors) {
 						m["red"]("soundcloud problem - " + traks.errors[0].error_message);
@@ -245,14 +239,16 @@
 					m["red"]("can't find link - " + request);
 				}
 			)
-			.always(m["link play"]);
+			.always(function() {
+				m["link play"]();
+			});
 	};
 
 	m["search link and play"] = function(request) {
 		request = (request || m["memory input latin message"]);
 
 		if (!request) {
-			m["link play"]();
+			m["link play"](true);
 
 			return;
 		}
@@ -283,7 +279,7 @@
 
 		m["memory links found"] = m["find links"](html, request);
 
-		if (!m["memory links found"].length) {
+		if (!m["memory links found"].length && m["option soundcloud client id"]) {
 			// link =  link.replace(/&amp;/g, "&");
 			// element.attr("tabindex", (element.attr("tabindex") || "0")).focus();
 			m["soundcloud search and play link"](request);
@@ -294,35 +290,50 @@
 		m["link play"]();
 	};
 
+	m["stop timeouts"] = function() {
+		m["memory timeout char space"] = clearTimeout(m["memory timeout char space"]);
+		m["memory timeout call"] = clearTimeout(m["memory timeout call"]);
+		m["memory timeout word space"] = clearTimeout(m["memory timeout word space"]);
+
+		m["generated sound stop"]();
+	};
+
+	m["clear input"] = function() {
+		m["stop timeouts"]();
+
+		m["memory keyboard downtime"] = undefined;
+		m["memory is waiting for link play"] = false;
+		m["memory audio is paused"] = true;
+
+		m["memory input morse message"] = "";
+		m["memory input latin message"] = "";
+		m["memory links found"] = [];
+		m["memory link position"] = 1;
+		m["memory link source"] = "";
+		m["memory soundcloud traks"] = [];
+	};
+
 	m["off"] = function() {
-		$(window).add($("*", "body")).off(".morsetick .morsetick-control");
+		$(window).add($("*", "body")).off(".morsetick");
 	};
 
 	$(m["on"] = function() {
 		m["off"]();
 
-		// // mouse experiment
-		// $("*")
-		// 	.on("mousemove.morsetick", function(event) {
-		// 		var offset = $(this).offset();
-		// 		m["memory oscillator"].frequency.value = event.clientX+200
-		// 		console.log(event.clientX+200);
-		// 		// console.log(event.clientY - offset.top);
-		// 		return false;
-		// 	})
-		//
-
-		var lastAction = "keyup.morsetick";
-		var stop = function() {
-			clearTimeout(m["memory timeout char space"]);
-			clearTimeout(m["memory timeout call"]);
-			clearTimeout(m["memory timeout word space"]);
-			m["generated sound stop"]();
-		}
-
 		$(window)
+			// experiment
+			// .on("mousemove.morsetick", function(event) {
+			// 	// if (m["memory timeout char space"] || m["memory keyboard downtime"]) {
+			// 	// 	m["clear input"]();
+
+			// 	// 	return m["link play"]();
+			// 	// }
+			// 	m["option oscillator frequency"] = event.clientX + 300;
+			// })
 			.on("mousedown.morsetick mouseup.morsetick tap.morsetick", function(event) {
 				if ($(event.target).is("textarea, input, a, button, select")) {
+					m["stop timeouts"]();
+
 					return;
 				}
 
@@ -331,68 +342,81 @@
 			    $(window).trigger(e);
 			})
 			.on("keydown.morsetick", function(event) {
-				stop();
 				m["memory keyboard downtime"] = undefined;
-				// return if not CONTROL pressed
+				m["memory keyboard uptime"] = undefined;
+				m["generated sound stop"]();
+
+				if ($(event.target).is("textarea, input, a, button, select")) {
+					return;
+				}
+				// 17 - control key
 				if ((17 !== event.which) || m["memory is waiting for link play"]) {
 					return;
 				}
-				//
+
+				m["stop timeouts"]();
 				m["memory keyboard downtime"] = (new Date()).getTime();
-				m["audio stop"]();
+				m["memory oscillator"].frequency.value = m["option oscillator frequency"];
 				m["generated sound start"]();
+				m["memory timeout call"] = setTimeout(function() {
+					m["memory keyboard downtime"] = (new Date()).getTime() - 3 * m["memory dot duration"];
+					var e = $.Event("keyup.morsetick");
+				    e.which = 17;
+				    $(window).trigger(e);
+				}, m["memory dot duration"] * 16);
 			})
 			.on("keyup.morsetick", function(event) {
-				stop();
-
-				if (!m["memory keyboard downtime"] || 17 !== event.which) {
+				if ($(event.target).is("textarea, input, a, button, select")) {
 					return;
 				}
-				
-				if ("function" === typeof console.clear) {
-					console.clear();
+				// 17 - control key
+				if ((17 !== event.which) || !m["memory keyboard downtime"]) {
+					return;
 				}
 
+				m["stop timeouts"]();
+				m["audio stop"]();
 				m["memory keyboard uptime"] = (new Date()).getTime();
 
 				var upDiff = m["memory keyboard uptime"] - m["memory keyboard downtime"];
-				var isDot = (upDiff < (m["memory dot duration"] + 75)) ? true : false;
+				var isDot = (upDiff < (2 * m["memory dot duration"]));
 
 				m["memory keyboard downtime"] = undefined;
 
 				if (isDot) {
-					m["memory dot duration"] = upDiff;
+					m["memory dot duration"] = (upDiff > 75) ? upDiff : 75; // ok ?
 					m["memory input morse message"] += ".";
 				}
 				else {
-					m["memory dot duration"] = upDiff / 3; // ok ?
+					m["memory dot duration"] = upDiff / 3; // ok ? Dot longer than dash in 3x
 					m["memory input morse message"] += "-";
 				}
 
-				var request = m["memory input latin message"] = m["library morse"](m["memory input morse message"]);
-				var doc = document.documentElement.outerHTML || "";
-
-				m["green"](m["memory dot duration"]);
-				m["green"](request, m["memory input morse message"]);
+				m["memory input latin message"] = m["library morse"](m["memory input morse message"]);
 				m["event keyup"]();
 
 				m["memory timeout char space"] = setTimeout(function() {
+					// m["tick"](1046.50);
+					m["memory input morse message"] += " ";
+
 					if ("?" === m["memory input latin message"].slice(-1)[0]) {
 						m["memory is waiting for link play"] = true;
-						stop();
+						m["stop timeouts"]();
 						setTimeout(m["link play"], 3000);
 
 						return;
 					}
-
-					m["memory input morse message"] += " ";
-				}, m["memory dot duration"] * 2); // ok ?
+				}, m["memory dot duration"] * 4); // ok ?
 				
 				m["memory timeout word space"] = setTimeout(function() {
+					// m["tick"](1318.51);
 					m["memory input morse message"] += "  ";
-				}, m["memory dot duration"] * 6); // ok ?
+				}, m["memory dot duration"] * 8); // ok ?
 
-				m["memory timeout call"] = setTimeout(m["search link and play"], m["memory dot duration"] * 16);
+				m["memory timeout call"] = setTimeout(function() {
+					// m["tick"](1567.98);
+					m["search link and play"]();
+				}, m["memory dot duration"] * 16);
 			});
 	});
 
@@ -423,7 +447,6 @@
 		audio.pause();
 		audio.src = stringSrc;
 		audio.play();
-		m["green"]("play " + stringSrc);
 	};
 
 	m["audio resume"] = function() {
@@ -439,11 +462,15 @@
 	};
 
 	m["generated sound start"] = function() {
+		clearTimeout(m["memory timeout oscillator play"]);
 		m["memory oscillator gain"].gain.value = 0.1;
 	};
 
 	m["generated sound stop"] = function() {
+		clearTimeout(m["memory timeout oscillator play"]);
 		m["memory oscillator gain"].gain.value = 0;
+		m["memory oscillator"].type = "sine";
+		m["memory oscillator"].frequency.value = m["option oscillator frequency"];
 	};
 
 	m["green"] = function() {
@@ -459,33 +486,46 @@
 
 		m["memory oscillator"].frequency.value = 3000;
 		m["generated sound start"]();
-
-		setTimeout(function() {
-			m["generated sound stop"]();
-			m["memory oscillator"].frequency.value = 440;
-		}, 50);
+		m["memory timeout oscillator play"] = setTimeout(m["generated sound stop"], 50);
 
 		return null;
 	};
+	// experiment
+	m["tick"] = function(frequency) {
+		// http://modernweb.com/2014/03/31/creating-sound-with-the-web-audio-api-and-oscillators/
+		// C6 1046.50,
+		// E6 1318.51,
+		// G6 1567.98,
+
+		m["memory oscillator"].frequency.value = frequency;
+		m["memory oscillator"].type = "triangle";
+		m["generated sound start"]();
+		m["memory timeout oscillator play"] = setTimeout(m["generated sound stop"], 10);
+	};
 
 	m["memory audio"] = new Audio(); // window.document.createElement("audio");
+	m["memory audio"].onplay = function() {
+		m["memory audio is paused"] = false;
+	};
 	m["memory audio"].onended = function() {
-		if (m["option play next"]) {
+		if (m["option play next track"]) {
 			m["command"]("n");
 		}
 	};
 	m["memory audio"].onerror = function() {
 		m["red"]("can't load or it's not audio")
 	};
+	m["memory audio is paused"] = false;
 	m["memory object audio context"] = new (window.AudioContext || window.webkitAudioContext);
 	m["memory oscillator"] = m["memory object audio context"].createOscillator();
-	m["memory oscillator"].frequency.value = 440;
+	m["memory oscillator"].frequency.value = m["option oscillator frequency"];
 	m["memory oscillator gain"] = m["memory object audio context"].createGain();
 	m["memory oscillator gain"].gain.value = 0;
 	m["memory oscillator"].connect(m["memory oscillator gain"]);
 	m["memory oscillator gain"].connect(m["memory object audio context"].destination);
 	m["memory oscillator"].start(0);
 	m["memory dot duration"] = 100;
+	m["memory timeout oscillator play"];
 	m["memory is waiting for link play"] = false;
 
 	m["memory timeout char space"];
@@ -499,6 +539,7 @@
 	m["memory links found"] = [];
 	m["memory link position"] = 1;
 	m["memory link source"] = "";
+	m["memory soundcloud traks"] = [];
 	m["memory history"] = [];
 
 	m["event keyup"] = $.noop;

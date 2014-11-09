@@ -5,9 +5,8 @@
 	<script type="text/javascript" src="morsetick.js"></script>
 	<style type="text/css">
 		body { 
-			height:2000px;
 			background-color:#DDD;
-			margin:20px;
+			margin:20px 20px 200px 20px;
 		}
 
 		a {
@@ -22,7 +21,7 @@
 		}
 
 		table caption {
-			margin: 40px 0px 10px 0px;
+			margin: 0px 0px 10px 0px;
 		    font-size: 20px;
 		}
 
@@ -35,8 +34,18 @@
 			text-align: left;
 		}
 
-		ul li {
+		ul, h3 {
+			margin: 0px;
+		}
+
+		.margin20 li {
 			margin: 20px;
+		}
+
+		#program {
+			text-align:center;
+			line-height: 15px;
+			margin: 15px;
 		}
 
 		#latin_text, #morse_code {
@@ -67,6 +76,10 @@
 			$("#option_program_version").text(morsetick["option program version"]);
 
 			$("#latin_text, #morse_code").keyup(function(event) {
+				if (17 === event.which) {
+					return;
+				}
+
 				var converted = morsetick["library morse"]($(this).val());
 
 				clearTimeout(morsetick["memory timeout call"]);
@@ -86,10 +99,9 @@
 			});
 
 			morsetick["event keyup"] = function(request) {
-				$("#memory_dot_duration").text(morsetick["memory dot duration"]);
 				$("#latin_text").val(morsetick["memory input latin message"]);
 				$("#morse_code").val(morsetick["memory input morse message"]);
-				$("#found").text("Found 0 traks");
+				$("#found").text("Dot duration = " + morsetick["memory dot duration"] + "ms.");
 			};
 
 			morsetick["event play link"] = function(event) {
@@ -102,14 +114,16 @@
 
 				var html = "";
 
-				$("#found").text("Found " + morsetick["memory links found"].length + " traks");
+				$("#found").text("Found " + morsetick["memory links found"].length 
+					+ " traks. Dot duration = " + morsetick["memory dot duration"] + "ms.");
 
 				for (var i = 0; i < morsetick["memory history"].length; i++) {
 					var h = morsetick["memory history"][i];
+					var link = (h["permalink_url"] || h["source"]);
 
 					html += "<li>&nbsp;&nbsp;&nbsp;" + h["date"].toLocaleString();
 					html += "&nbsp;&nbsp;&nbsp;";
-					html += "<a href='" + h["source"] + "' target='_blank'>" + h["latin"] + "</a>"
+					html += "<a href='" + link + "' target='_blank'>" + h["latin"] + "</a>"
 
 					if (1 < h["position"]) {
 						html += "&nbsp;&nbsp;&nbsp;";
@@ -124,27 +138,23 @@
 	</script>
 </head>
 <body>
-	<div>
-		<h3>
-			<div style="text-align:center;">
-				<a href="https://github.com/aumberg/morsetick">morsetick</a>
-				- <span id="option_program_description"></span>
-				<br/>
-				<br/>
-				version <span id="option_program_version"> - program not loaded</span>
-			</div>
-		</h3>
-	</div>
-	<ul>
-		<li>
-			<span id="found">Found 0 traks</span> 
-			(dot duration - <span id="memory_dot_duration">100</span>).
-		</li>
-	</ul>
+	<h3 id="program">
+		<a href="https://github.com/aumberg/morsetick">morsetick</a>
+		- <span id="option_program_description"></span>
+		<br/>
+		<br/>
+		version <span id="option_program_version"> - program not loaded</span>
+	</h3>
 
 	<textarea id="latin_text" rows="2" tabindex="1"></textarea>
-	<div id="arrows"> ⇄ </div>
+	<div id="arrows">⇄</div>
 	<textarea id="morse_code" rows="2" tabindex="2"></textarea>
+	
+	<ul>
+		<li id="found">
+			Dot duration = 100ms.
+		</li>
+	</ul>
 
 	<table>
 		<caption><b>Morse code</b></caption>
@@ -160,7 +170,7 @@
 		<tr><td>6</td><th>-....</th> <td>7</td><th>--...</th> <td>8</td><th>---..</th> <td>9</td><th>----.</th> <td>0</td><th>-----</th><tr>
 	</table>
 
-	<ul>
+	<ul class="margin20">
 		<li>
 			<p>
 				Get started
@@ -186,8 +196,7 @@
 							&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;
 							COMMAND
 						</option>
-						<option>e - pause</option>
-						<option>e r - resume</option>
+						<option>e - toggle play &amp; pause</option>
 						<option>e n - next track</option>
 						<option>e p - previous track</option>
 						<option>e (position) - change track</option>
