@@ -1,12 +1,11 @@
 <!DOCTYPE html>
 <html>
 <head>
-	<title>morsetick - ...</title>
-	<script type="text/javascript" src="morsetick.js"></script>
+	<title>Morsetick</title>
 	<style type="text/css">
 		body { 
 			background-color:#DDD;
-			margin:20px 20px 200px 20px;
+			margin:20px 20px 100px 20px;
 		}
 
 		a {
@@ -17,7 +16,9 @@
 			border: 1px solid black;
 			font-size: 30px;
 			width:100%;
+			min-height:100%;
 			padding:20px;
+			margin-bottom: 50px;
 		}
 
 		table caption {
@@ -38,8 +39,12 @@
 			margin: 0px;
 		}
 
-		.margin20 li {
+		.description li {
 			margin: 20px;
+		}
+
+		.main {
+			display: none;
 		}
 
 		#program {
@@ -51,6 +56,7 @@
 		#latin_text, #morse_code {
 			font-size:25px;
 			width:40%; 
+			max-width:40%; 
 		}
 
 		#latin_text {
@@ -64,165 +70,153 @@
 			text-align:center;
 		}
 	</style>
+	<script type="text/javascript" src="morsetick.js"></script>
 	<script type="text/javascript">
 		$ = morsetick.$;
 
+		morsetick["option console log"] = true;
+
 		$(function () {
-			var locate = document.location.href;
-			var url = "javascript:(function(){var script=document.createElement('script');script.src='http://aumberg.github.io/morsetick/morsetick.js';document.body.appendChild(script);}())";
+			$(".main").show();
+			$("#error").hide();
 
 			$("#option_program_description").text(morsetick["option program description"]);
-			$(".option_program_bookmark").attr("href", url);
 			$("#option_program_version").text(morsetick["option program version"]);
 
+			$("#mmm_links").click(morsetick["links"]);
+
+			$("#learn").click(function() {
+				$(window).scrollTop(1);
+
+				$("table th")
+					.css({"visibility":"hidden"})
+					.prev().hover(
+						function(){
+							$(this).next().css({"visibility":"visible"});
+						},
+						function(){
+							$(this).next().css({"visibility":"hidden"});
+						});
+			});
+
 			$("#latin_text, #morse_code").keyup(function(event) {
-				if (17 === event.which) {
+				var request = $(this).val();
+				var converted = morsetick["library morse"](request);
+				var another = $("#latin_text, #morse_code").not(this);
+				
+				if (another.val() === converted) {
 					return;
 				}
 
-				var converted = morsetick["library morse"]($(this).val());
-
-				clearTimeout(morsetick["memory timeout call"]);
-				$("#latin_text, #morse_code").not(this).val(converted);
-
+				morsetick["stop timeouts"]();
 				morsetick["memory timeout call"] = setTimeout(function() {
-					var request = $("#latin_text").val();
-
-					if (!request.match(/[^\s.-]/)) {
-						request = $("#morse_code").val();
-					}
-
 					morsetick["search link and play"](request);
 				}, 1000);
-
-				event.stopPropagation();
 			});
 
 			morsetick["event keyup"] = function(request) {
-				$("#latin_text").val(morsetick["memory input latin message"]);
-				$("#morse_code").val(morsetick["memory input morse message"]);
-				$("#found").text("Dot duration = " + morsetick["memory dot duration"] + "ms.");
+				$("#latin_text").val(morsetick["memory current"]["latin"]);
+				$("#morse_code").val(morsetick["memory current"]["morse"]);
+
+				if (morsetick["memory audio is play"]) {
+					$("#found").text("Dot duration = " + morsetick["memory dot duration"] + "ms.");
+				}
 			};
 
 			morsetick["event play link"] = function(event) {
-				if (!morsetick["memory links found"].length) {
-					$("#latin_text").val("");
-					$("#morse_code").val("");
-
+				if (!morsetick["memory audio is play"]) {
 					return;
 				}
 
-				var html = "";
+				var last = morsetick["in history"]("last");
 
-				$("#found").text("Found " + morsetick["memory links found"].length 
-					+ " traks. Dot duration = " + morsetick["memory dot duration"] + "ms.");
-
-				for (var i = 0; i < morsetick["memory history"].length; i++) {
-					var h = morsetick["memory history"][i];
-					var link = (h["permalink_url"] || h["source"]);
-
-					html += "<li>&nbsp;&nbsp;&nbsp;" + h["date"].toLocaleString();
-					html += "&nbsp;&nbsp;&nbsp;";
-					html += "<a href='" + link + "' target='_blank'>" + h["latin"] + "</a>"
-
-					if (1 < h["position"]) {
-						html += "&nbsp;&nbsp;&nbsp;";
-						html += "(" + h["position"] + " position)";
-					}
-					html += "</li>";
-				};
-				
-				$("#mmm_links").html(html);
+				$("#latin_text").val(last["latin"]);
+				$("#morse_code").val(last["morse"]);
+				$("#found").html(last["position"] + " <a href='" + last["link"] + "' target='_blank'>link</a>"
+					+ " of " + last["links"].length + " is playing."
+					+ " Dot duration = " + morsetick["memory dot duration"] + "ms.");
 			};
 		})
 	</script>
 </head>
 <body>
 	<h3 id="program">
-		<a href="https://github.com/aumberg/morsetick">morsetick</a>
+		<a href="https://github.com/aumberg/morsetick">Morsetick</a>
 		- <span id="option_program_description"></span>
 		<br/>
 		<br/>
 		version <span id="option_program_version"> - program not loaded</span>
 	</h3>
 
-	<textarea id="latin_text" rows="2" tabindex="1"></textarea>
-	<div id="arrows">⇄</div>
-	<textarea id="morse_code" rows="2" tabindex="2"></textarea>
-	
-	<ul>
-		<li id="found">
-			Dot duration = 100ms.
-		</li>
-	</ul>
+	<div id="error">Can not work in that browser</div>
 
-	<table>
-		<caption><b>Morse code</b></caption>
-		<tr><td>a</td><th>.-</th>    <td>b</td><th>-...</th>  <td>c</td><th>-.-.</th>  <td>d</td><th>-..</th><tr>
-		<tr><td>e</td><th>.</th>     <td>f</td><th>..-.</th>  <td>g</td><th>--.</th>   <td>h</td><th>....</th><tr>
-		<tr><td>i</td><th>..</th>    <td>j</td><th>.---</th>  <td>k</td><th>-.-</th>   <td>l</td><th>.-..</th><tr>
-		<tr><td>m</td><th>--</th>    <td>n</td><th>-.</th>    <td>o</td><th>---</th>   <td>p</td><th>.--.</th><tr>
-		<tr><td>q</td><th>--.-</th>  <td>r</td><th>.-.</th>   <td>s</td><th>...</th>   <td>t</td><th>-</th><tr>
-		<tr><td>u</td><th>..-</th>   <td>v</td><th>...-</th>  <td>w</td><th>.--</th>   <td>x</td><th>-..-</th><tr>
-		<tr><td>y</td><th>-.--</th>  <td>z</td><th>--..</th></tr>
-		<tr><td><br></td></tr>
-		<tr><td>1</td><th>.----</th> <td>2</td><th>..---</th> <td>3</td><th>...--</th> <td>4</td><th>....-</th> <td>5</td><th>.....</th><tr>
-		<tr><td>6</td><th>-....</th> <td>7</td><th>--...</th> <td>8</td><th>---..</th> <td>9</td><th>----.</th> <td>0</td><th>-----</th><tr>
-	</table>
+	<div class="main">
+		<textarea id="latin_text" rows="2" tabindex="1"></textarea>
+		<div id="arrows">⇄</div>
+		<textarea id="morse_code" rows="2" tabindex="2"></textarea>
+		
+		<ul>
+			<li id="found" class="morsetickThereNoLinks">
+				Dot duration = 100ms.
+			</li>
+		</ul>
 
-	<ul class="margin20">
-		<li>
-			<p>
-				Get started
-			</p>
-			<ul>
-				<li>
-					Ok, just press <b>control</b> key, or click on page. Type some text, like 
-					<a href="http://www.html5guitartuner.com/notes/06-guitar-high-e-string.mp3" target="_blank">high e</a>
-					, <a href="http://www.html5guitartuner.com/notes/05-guitar-b-string.mp3" target="_blank">b</a>
-					, <a href="http://www.html5guitartuner.com/notes/04-guitar-g-string.mp3" target="_blank">g</a>
-					, <a href="http://www.html5guitartuner.com/notes/03-guitar-d-string.mp3" target="_blank">d</a>
-					, <a href="http://www.html5guitartuner.com/notes/02-guitar-a-string.mp3" target="_blank">a</a>
-					, <a href="http://www.html5guitartuner.com/notes/01-guitar-low-e-string.mp3" target="_blank">low e</a>
-					and <b>morsetick</b> starts search music in that page and 
-					<a href="https://soundcloud.com/" target="_blank">
-						soundcloud
-					</a>
-				</li>
-				<li>
-					You can type
-					<select>
-						<option selected="selected">
-							&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;
-							COMMAND
-						</option>
-						<option>e - toggle play &amp; pause</option>
-						<option>e n - next track</option>
-						<option>e p - previous track</option>
-						<option>e (position) - change track</option>
-						<option>e e (text) - search with E word</option>
-					</select>
-					for change sound position or something else
-				</li>
-				<li>
-					Drag and drop that link to bookmarks bar
-					<a class="option_program_bookmark">
-						morsetick
-					</a>
-					, or download project
-					<a href="https://github.com/aumberg/morsetick">
-						source
-					</a>
-					to your local device and add sound links in HTML 
-				</li>
-				<li>
-					Mmm... links )
-					<ol>
-						<span id="mmm_links"></span>
-					</ol>
-				</li>
-			</ul>
-		</li>
-	</ul>
+		<table>
+			<caption><b>Morse code</b></caption>
+			<tr><td>a</td><th>.-</th>    <td>b</td><th>-...</th>  <td>c</td><th>-.-.</th>  <td>d</td><th>-..</th></tr>
+			<tr><td>e</td><th>.</th>     <td>f</td><th>..-.</th>  <td>g</td><th>--.</th>   <td>h</td><th>....</th></tr>
+			<tr><td>i</td><th>..</th>    <td>j</td><th>.---</th>  <td>k</td><th>-.-</th>   <td>l</td><th>.-..</th></tr>
+			<tr><td>m</td><th>--</th>    <td>n</td><th>-.</th>    <td>o</td><th>---</th>   <td>p</td><th>.--.</th></tr>
+			<tr><td>q</td><th>--.-</th>  <td>r</td><th>.-.</th>   <td>s</td><th>...</th>   <td>t</td><th>-</th></tr>
+			<tr><td>u</td><th>..-</th>   <td>v</td><th>...-</th>  <td>w</td><th>.--</th>   <td>x</td><th>-..-</th></tr>
+			<tr><td>y</td><th>-.--</th>  <td>z</td><th>--..</th></tr>
+			<tr><td><br></td></tr>
+			<tr><td>1</td><th>.----</th> <td>2</td><th>..---</th> <td>3</td><th>...--</th> <td>4</td><th>....-</th> <td>5</td><th>.....</th></tr>
+			<tr><td>6</td><th>-....</th> <td>7</td><th>--...</th> <td>8</td><th>---..</th> <td>9</td><th>----.</th> <td>0</td><th>-----</th></tr>
+		</table>
+
+		<ul class="description">
+			<li>
+				Ok, just press <b>control</b> key, or click on page. Type some text, like 
+				<a href="http://www.html5guitartuner.com/notes/06-guitar-high-e-string.mp3" target="_blank">high e</a>
+				, <a href="http://www.html5guitartuner.com/notes/05-guitar-b-string.mp3" target="_blank">b</a>
+				, <a href="http://www.html5guitartuner.com/notes/04-guitar-g-string.mp3" target="_blank">g</a>
+				, <a href="http://www.html5guitartuner.com/notes/03-guitar-d-string.mp3" target="_blank">d</a>
+				, <a href="http://www.html5guitartuner.com/notes/02-guitar-a-string.mp3" target="_blank">a</a>
+				, <a href="http://www.html5guitartuner.com/notes/01-guitar-low-e-string.mp3" target="_blank">low e</a>
+				and <b>Morsetick</b> starts search music in current page and 
+				<a href="https://soundcloud.com/" target="_blank">
+					soundcloud
+				</a>
+			</li>
+			<li>
+				Drag and drop
+				<a class="option_program_bookmark" href="javascript:(function(){var script=document.createElement('script');script.src='https://aumberg.github.io/morsetick/morsetick.js';document.body.appendChild(script);}())">
+					Morsetick
+				</a>
+				link to bookmarks bar, or download
+				<a href="https://github.com/aumberg/morsetick">
+					project
+				</a>
+				to add your sound links into HTML 
+			</li>
+			<li>
+				<button id="learn">Learn Morse code :)</button>
+			</li>
+			<li>
+				<button id="mmm_links">Mmm... links )</button>
+			</li>
+			<li>
+				List of commands:
+				<select>
+					<option>e - toggle play &amp; pause</option>
+					<option>e n - next track</option>
+					<option>e p - previous track</option>
+					<option>e (position) - change track</option>
+					<option>e e (text) - search with E word</option>
+				</select>
+			</li>
+		</ul>
+	</div>
 </body>
 </html>
