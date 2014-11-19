@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-	<title>Morsetick</title>
+	<title>MorseTick</title>
 	<style type="text/css">
 		body { 
 			background-color:#DDD;
@@ -47,6 +47,11 @@
 			display: none;
 		}
 
+		#found {
+			margin: 5px;
+			height: 10px;
+		}
+
 		#program {
 			text-align:center;
 			line-height: 15px;
@@ -72,18 +77,19 @@
 	</style>
 	<script type="text/javascript" src="morsetick.js"></script>
 	<script type="text/javascript">
+		m = window.morsetick;
 		$ = morsetick.$;
 
-		morsetick["option console log"] = true;
+		m["option console log"] = true;
 
 		$(function () {
 			$(".main").show();
 			$("#error").hide();
 
-			$("#option_program_description").text(morsetick["option program description"]);
-			$("#option_program_version").text(morsetick["option program version"]);
+			$("#option_program_description").text(m["option program description"]);
+			$("#option_program_version").text(m["option program version"]);
 
-			$("#mmm_links").click(morsetick["links"]);
+			$("#mmm_links").click(m["links"]);
 
 			$("#learn").click(function() {
 				$(window).scrollTop(1);
@@ -101,47 +107,44 @@
 
 			$("#latin_text, #morse_code").keyup(function(event) {
 				var request = $(this).val();
-				var converted = morsetick["library morse"](request);
+				var converted = m["morse"](request);
 				var another = $("#latin_text, #morse_code").not(this);
 				
 				if (another.val() === converted) {
 					return;
 				}
 
-				morsetick["stop timeouts"]();
-				morsetick["memory timeout call"] = setTimeout(function() {
-					morsetick["search link and play"](request);
+				m["stop timeouts"]();
+				m["memory timeout call"] = setTimeout(function() {
+					m["search link and play"](request);
 				}, 1000);
 			});
 
-			morsetick["event keyup"] = function(request) {
-				$("#latin_text").val(morsetick["memory current"]["latin"]);
-				$("#morse_code").val(morsetick["memory current"]["morse"]);
+			m["event"] = function(event) {
+				var current = m["memory current"];
 
-				if (morsetick["memory audio is play"]) {
-					$("#found").text("Dot duration = " + morsetick["memory dot duration"] + "ms.");
+				if ("keyup" === event) {
+					$("#latin_text").val(current["latin"]);
+					$("#morse_code").val(current["morse"]);
+					$("#found").text("");
 				}
-			};
+				else if ("play link" === event) {
+					if (!m["memory audio is play"]) {
+						return;
+					}
 
-			morsetick["event play link"] = function(event) {
-				if (!morsetick["memory audio is play"]) {
-					return;
+					$("#latin_text").val(current["latin"]);
+					$("#morse_code").val(current["morse"]);
+					$("#found").html(current["position"] + " <a href='" + current["link"] 
+						+ "' target='_blank'>link</a> of " + current["links"].length + " is playing");
 				}
-
-				var last = morsetick["in history"]("last");
-
-				$("#latin_text").val(last["latin"]);
-				$("#morse_code").val(last["morse"]);
-				$("#found").html(last["position"] + " <a href='" + last["link"] + "' target='_blank'>link</a>"
-					+ " of " + last["links"].length + " is playing."
-					+ " Dot duration = " + morsetick["memory dot duration"] + "ms.");
 			};
 		})
 	</script>
 </head>
 <body>
 	<h3 id="program">
-		<a href="https://github.com/aumberg/morsetick">Morsetick</a>
+		<a href="https://github.com/aumberg/morsetick">MorseTick</a>
 		- <span id="option_program_description"></span>
 		<br/>
 		<br/>
@@ -154,12 +157,8 @@
 		<textarea id="latin_text" rows="2" tabindex="1"></textarea>
 		<div id="arrows">⇄</div>
 		<textarea id="morse_code" rows="2" tabindex="2"></textarea>
-		
-		<ul>
-			<li id="found" class="morsetickThereNoLinks">
-				Dot duration = 100ms.
-			</li>
-		</ul>
+	
+		<div id="found" class="morsetickThereNoLinks"></div>
 
 		<table>
 			<caption><b>Morse code</b></caption>
@@ -184,7 +183,7 @@
 				, <a href="http://www.html5guitartuner.com/notes/03-guitar-d-string.mp3" target="_blank">d</a>
 				, <a href="http://www.html5guitartuner.com/notes/02-guitar-a-string.mp3" target="_blank">a</a>
 				, <a href="http://www.html5guitartuner.com/notes/01-guitar-low-e-string.mp3" target="_blank">low e</a>
-				and <b>Morsetick</b> starts search music in current page and 
+				and <b>MorseTick</b> starts search music in current page and 
 				<a href="https://soundcloud.com/" target="_blank">
 					soundcloud
 				</a>
@@ -192,7 +191,7 @@
 			<li>
 				Drag and drop
 				<a class="option_program_bookmark" href="javascript:(function(){var script=document.createElement('script');script.src='https://aumberg.github.io/morsetick/morsetick.js';document.body.appendChild(script);}())">
-					Morsetick
+					MorseTick
 				</a>
 				link to bookmarks bar, or download
 				<a href="https://github.com/aumberg/morsetick">

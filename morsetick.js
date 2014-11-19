@@ -16,20 +16,34 @@
 
 	m["$"] = $;
 
-	m["option program name"] = "morsetick";
+	m["option program name"] = "MorseTick";
 	m["option program description"] = "...";
 	m["option program version"] = "0.1";
 	m["option program license"] = "http://unlicense.org/UNLICENSE";
 	m["option program manifesto"] = "http://minifesto.org/";
 	m["option program source code"] = "https://github.com/aumberg/morsetick";
+	m["option program thanks"] = "Thanks for all, without who this program never looked like so. Oh, you are amazing!!!";
 
 	m["option audio volume"] = 75;
+	m["option console log"] = true;
+	m["option dot duration"] = 100; // Higher than "Key repeating delay" roughly at 50 milliseconds
 	m["option play next track"] = true;
-	m["option console log"] = false;
-	m["option soundcloud client id"] = "4c4f5801e905988f9e73b2156c7fb5c4"; //delete, if don't use soundcloud
+	m["option soundcloud client id"] = "4c4f5801e905988f9e73b2156c7fb5c4"; // Delete if not use "soundcloud"
 
-	//Morse code to latin, or latin to Morse code
-	m["library morse"] = function(string) {
+	m["duration"] = function() {
+		var duration = {};
+
+		duration["dot"] = m["option dot duration"];
+		duration["dash"] = duration["dot"] * 3;
+		duration["char space"] = duration["dot"] * 3;
+		duration["word space"] = duration["dot"] * 7;
+		duration["call"] = duration["dot"] * 16;
+		duration["dot dash mean"] = (duration["dash"] - duration["dot"]) / 2 + duration["dot"];
+
+		return duration;
+	}
+	// Morse code to latin, or backward
+	m["morse"] = function(string) {
 		if (!string) {
 			return "";
 		}
@@ -77,10 +91,6 @@
 		return resultMassive.join("").replace(/^\s+|\s+$/g, "");
 	};
 
-	m["library escape regexp string"] = function(string) {
-		return string.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
-	};
-
 	m["command"] = function(name, argString) {
 		var last = m["memory current"] = m["in history"]("last");
 		
@@ -90,15 +100,11 @@
 		// toggle play & pause
 		else if (!name) {
 			if (m["memory audio is play"]) {
-				m["audio"]({
-					"command": "pause" 
-				});
+				m["audio"]({"command": "pause"});
 				m["memory audio is play"] = false;
 			}
 			else {
-				m["audio"]({
-					"command": "play"
-				});
+				m["audio"]({"command": "play"});
 				m["memory audio is play"] = true;
 			}
 
@@ -125,6 +131,65 @@
 
 		m["link play"]();
 	};
+	// use m["keydown"](true), if can't catch "keyup" event
+	m["keydown"] = function(isHaveOnlyKeydownEvent) {
+		if (m["memory is waiting for link play"]) {
+			return;
+		}
+		else if (!m["memory keyboard downtime"]) {
+			m["tick"]({"timeout": 10000});
+			m["memory keyboard downtime"] = (new Date()).getTime();
+		}
+
+		var duration = m["duration"]();
+
+		m["clear timeouts"]();
+		m["audio"]();
+		m["memory keyboard uptime"] = undefined;
+		m["memory timeout call"] = setTimeout(m["keyup"], isHaveOnlyKeydownEvent ? duration["dot"] : duration["dash"]); // ?
+		m["event"]("keydown");
+	};
+	//
+	m["keyup"] = function() {
+		if (!m["memory keyboard downtime"]) {
+			return;
+		}
+
+		m["clear timeouts"]();
+		m["audio"]();
+		m["tick"]();
+		m["memory keyboard uptime"] = (new Date()).getTime();
+
+		var duration = m["duration"]();
+		var uptimeDiff = m["memory keyboard uptime"] - m["memory keyboard downtime"];
+		var isDot = (uptimeDiff < duration["dot dash mean"]);
+
+		m["memory current"]["morse"] += isDot ? "." : "-";
+		m["memory keyboard downtime"] = undefined;
+		m["memory current"]["latin"] = m["morse"](m["memory current"]["morse"]);
+		m["green"]("\"" + m["memory current"]["latin"] + "\"", m["memory current"]["morse"]);
+		m["event"]("keyup");
+
+		m["memory timeout char space"] = setTimeout(function() {
+			if ("?" === m["memory current"]["latin"].slice(-1)[0]) {
+				m["memory is waiting for link play"] = true;
+				m["clear timeouts"]();
+				setTimeout(m["link play"], 3000);
+
+				return;
+			}
+
+			m["memory current"]["morse"] += " ";
+		}, duration["char space"]);
+		
+		m["memory timeout word space"] = setTimeout(function() {
+			m["memory current"]["morse"] += "  ";
+		}, duration["word space"]);
+
+		m["memory timeout call"] = setTimeout(function() {
+			m["search link and play"]();
+		}, duration["call"]);
+	};
 
 	m["link play"] = function(justClear) {
 		if (true === justClear) {
@@ -134,17 +199,25 @@
 			var last = m["in history"]("push");
 
 			if (last["source"]) {
-				m["green"]("play " + last["link"], last);
+				var info = "Playing: \"" + last["latin"] + "\"";
+
+				if (1 < last["position"]) {
+					info += " (" + last["position"] + " position)";
+				}
+
+				info += ", At: " +  last["date"].toLocaleString() + ", Link: " + last["link"];
+
+				m["green"](info);
 				m["audio"]({
 					"src": last["source"], "command": "play"
 				});
 			}
 			else {
-				m["red"]("don't play");
+				m["red"]("Don't play \"" + last["latin"] + "\" " + last["morse"]);
 			}
 		}
 
-		m["event play link"]();
+		m["event"]("play link");
 		m["clear input"]();
 	};
 
@@ -158,8 +231,8 @@
 			last = $.extend(last, m["memory current"]);
 		}
 		
-		last["latin"] = (last["latin"] || m["library morse"](last["morse"]));
-		last["morse"] = (last["morse"] || m["library morse"](last["latin"]));
+		last["latin"] = (last["latin"] || m["morse"](last["morse"]));
+		last["morse"] = (last["morse"] || m["morse"](last["latin"]));
 		last["date"] = new Date();
 		last["permalink_url"] = (last["soundcloud traks"][last["position"] - 1] || [])["permalink_url"];
 		last["source"] = (last["links"][last["position"] - 1] || "");
@@ -215,27 +288,31 @@
 
 	m["soundcloud search and play link"] = function(request) {
 		var param = {
-			"q": request
-			,"client_id": m["option soundcloud client id"]
-			,"format": "json"
-			,"streamable": true
-			,"limit": 100
+			"url": "https://api.soundcloud.com/tracks/"
+			,"type": "GET"
+			,"timeout": 5000
+			,"dataType": "json"
+			,"data" : {
+				"q": request
+				,"client_id": m["option soundcloud client id"]
+				,"format": "json"
+				,"streamable": true
+				,"limit": 100
+			}
 		};
 
-		$.ajaxSetup({
-			timeout: 5000
-		});
-
-		$.getJSON("https://api.soundcloud.com/tracks/", param)
+		$.ajax(param)
 			.done(
 				function(traks) {
+					traks = ("string" === typeof traks) ? $.parseJSON(traks) : traks;
+
 					if (traks.length) {
 						for (var i = 0; i < traks.length; i++) {
 							if (!traks[i].stream_url) {
 								continue;
 							}
 
-							traks[i].stream_url += "?client_id=" + param.client_id;
+							traks[i].stream_url += "?client_id=" + param["data"]["client_id"];
 							m["memory current"]["links"].push(traks[i].stream_url);
 							m["memory current"]["soundcloud traks"].push(traks[i]);
 						}
@@ -305,34 +382,20 @@
 			var link = (h["permalink_url"] || h["source"]);
 
 			html += "<li>&nbsp;&nbsp;&nbsp;" + h["date"].toLocaleString();
-			html += "&nbsp;&nbsp;&nbsp;" + h["latin"];
+			html += "&nbsp;&nbsp;&nbsp;\"" + h["latin"] + "\"";
 
 			if (1 < h["position"]) {
 				html += "&nbsp;&nbsp;&nbsp;";
 				html += "(" + h["position"] + " position)";
 			}
 
-			html += "&nbsp;&nbsp;&nbsp;-&nbsp;&nbsp;&nbsp;" + "<a href='" + h["link"] + "' target='_blank'>" + h["link"] + "</a></li>";
+			html += "&nbsp;&nbsp;&nbsp;" + "<a href='" + h["link"] + "' target='_blank'>" + h["link"] + "</a></li>";
 		};
 
 		html += "</ol>";
 		
 		linksWindow.document.write(html);
 	}
-
-	m["stop timeouts"] = function() {
-		m["memory timeout char space"] = clearTimeout(m["memory timeout char space"]);
-		m["memory timeout call"] = clearTimeout(m["memory timeout call"]);
-		m["memory timeout word space"] = clearTimeout(m["memory timeout word space"]);
-	};
-
-	m["clear input"] = function() {
-		m["stop timeouts"]();
-
-		m["memory keyboard downtime"] = undefined;
-		m["memory is waiting for link play"] = false;
-		m["memory current"] = m["in history"]();
-	};
 
 	m["off"] = function() {
 		m["clear input"]();
@@ -342,98 +405,43 @@
 	$(m["on"] = function() {
 		m["off"]();
 
+		m["green"]("Welcome! MorseTick - " + m["option program description"]);
+		m["green"]("Project page - " + m["option program source code"]);
+
 		$(window)
 			// // experiment
 			// .on("mousemove.morsetick", function(event) {
 			// 	m["memory oscillator"].frequency.value = event.clientX + 300;
 			// })
-			.on("mousedown.morsetick mouseup.morsetick tap.morsetick", function(event) {
-				if ($(event.target).is("textarea, input, a, button, select")) {
-					m["stop timeouts"]();
+			.on("keyup.morsetick keydown.morsetick mouseup.morsetick mousedown.morsetick tap.morsetick", function(event) {
+				var isMouse = (1 === event.which);
+				var isControl = (17 === event.which);
 
+				if ((!isMouse && !isControl) || $(event.target).is("textarea, input, a, button, select")) {
 					return;
 				}
 
-			    var e = $.Event("mousedown" === event.type ? "keydown.morsetick" : "keyup.morsetick");
-			    e.which = 17;
-			    $(window).trigger(e);
-			})
-			.on("keydown.morsetick", function(event) {
-				m["memory keyboard downtime"] = undefined;
-				m["memory keyboard uptime"] = undefined;
-				m["tick"]();
-
-				if ($(event.target).is("textarea, input, a, button, select")) {
-					return;
-				}
-				// 17 - control key
-				if ((17 !== event.which) || m["memory is waiting for link play"]) {
-					return;
-				}
-
-				m["stop timeouts"]();
-				m["tick"]({"timeout": 10000});
-				m["audio"]();
-				m["memory keyboard downtime"] = (new Date()).getTime();
-				m["memory timeout call"] = setTimeout(function() {
-					m["memory keyboard downtime"] = (new Date()).getTime() - 3 * m["memory dot duration"];
-					var e = $.Event("keyup.morsetick");
-				    e.which = 17;
-				    $(window).trigger(e);
-				}, m["memory dot duration"] * 16);
-			})
-			.on("keyup.morsetick", function(event) {
-				if ($(event.target).is("textarea, input, a, button, select")) {
-					return;
-				}
-				// 17 - control key
-				if ((17 !== event.which) || !m["memory keyboard downtime"]) {
-					return;
-				}
-
-				m["stop timeouts"]();
-				m["tick"]();
-				m["audio"]();
-				m["memory keyboard uptime"] = (new Date()).getTime();
-
-				var upDiff = m["memory keyboard uptime"] - m["memory keyboard downtime"];
-				var isDot = (upDiff < (2 * m["memory dot duration"]));
-
-				m["memory keyboard downtime"] = undefined;
-
-				if (isDot) {
-					m["memory dot duration"] = (upDiff > 75) ? upDiff : 75; // ok ?
-					m["memory current"]["morse"] += ".";
-				}
-				else {
-					m["memory dot duration"] = upDiff / 3; // ok ? Dot longer than dash in 3x
-					m["memory current"]["morse"] += "-";
-				}
-
-				m["memory current"]["latin"] = m["library morse"](m["memory current"]["morse"]);
-				m["event keyup"]();
-
-				m["memory timeout char space"] = setTimeout(function() {
-					m["memory current"]["morse"] += " ";
-
-					if ("?" === m["memory current"]["latin"].slice(-1)[0]) {
-						m["memory is waiting for link play"] = true;
-						m["stop timeouts"]();
-						setTimeout(m["link play"], 3000);
-
-						return;
-					}
-				}, m["memory dot duration"] * 4); // ok ?
-				
-				m["memory timeout word space"] = setTimeout(function() {
-					m["memory current"]["morse"] += "  ";
-				}, m["memory dot duration"] * 8); // ok ?
-
-				m["memory timeout call"] = setTimeout(function() {
-					m["search link and play"]();
-				}, m["memory dot duration"] * 16);
+				event.type.match(/tap|down/) ? m["keydown"]() : m["keyup"]();
 			});
 	});
+
+	m["clear timeouts"] = function() {
+		m["memory timeout char space"] = clearTimeout(m["memory timeout char space"]);
+		m["memory timeout call"] = clearTimeout(m["memory timeout call"]);
+		m["memory timeout word space"] = clearTimeout(m["memory timeout word space"]);
+	};
+
+	m["clear input"] = function() {
+		m["clear timeouts"]();
+
+		m["memory keyboard downtime"] = undefined;
+		m["memory is waiting for link play"] = false;
+		m["memory current"] = m["in history"]();
+	};
+
+	m["library escape regexp string"] = function(string) {
+		return string.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
+	};
 
 	m["self element clone"] = function(element) {
 		var clone 	= $(element).clone();
@@ -451,11 +459,11 @@
 			"src": ""
 			,"object": m["audio"]["object"]
 			,"volume": m["option audio volume"]
-			,"command": "pause" // play
+			,"command": "pause" // "play"
 		}, param);
 
 		if (!param["object"]) {
-			if (!Audio) {
+			if (!window.Audio) {
 				return;
 			}
 
@@ -539,29 +547,31 @@
 		return param["oscillator"];
 	};
 
-	m["green"] = function() {
-		if (m["option console log"] && console && ("function" === typeof console.log) && arguments.length) {
-			console.log("morsetick " + m["option program version"] + ", LOG: ", arguments);
-		}
+	m["console"] = function(consoleFunction, arguments, promt) {
+		if (m["option console log"] && console && ("function" === typeof consoleFunction) && arguments.length) {
+			var masOfArgs = [];
 
+			for (var i = 0; i < arguments.length; i++) {
+				 masOfArgs.push(arguments[i]);
+			}
+
+			consoleFunction.apply(console, ["MorseTick v" + m["option program version"], (promt || ":-)")].concat(masOfArgs));
+		}
+	};
+
+	m["green"] = function() {
+		m["console"](console.log, arguments);
 		m["tick"]({"timeout": 50, "frequency": 1046.50})
 	};
 
 	m["red"] = function() {
-		if (m["option console log"] && console && ("function" === typeof console.log) && arguments.length) {
-			var fname = ("function" === typeof console.error) ? "error" : "log";
-
-			console[fname].call(console, "morsetick " + m["option program version"] + ", ERROR: ", arguments);
-		}
-
+		m["console"](console.error || console.log, arguments, ":`( Ops!");
 		m["tick"]({"timeout": 50, "frequency": 3000});
 
 		return null;
 	};
 
 	m["memory audio is play"] = false;
-
-	m["memory dot duration"] = 100;
 	m["memory is waiting for link play"] = false;
 
 	m["memory timeout tick"];
@@ -575,6 +585,5 @@
 	m["memory history"] = [];
 	m["memory current"] = m["in history"]();
 
-	m["event keyup"] = $.noop;
-	m["event play link"] = $.noop;
+	m["event"] = $.noop; // Submit events to another...
 }());
