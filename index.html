@@ -121,18 +121,14 @@
 			});
 
 			m["event"] = function(event) {
-				var current = m["memory current"];
+				var current = m["in history"]("current");
 
 				if ("keyup" === event) {
 					$("#latin_text").val(current["latin"]);
 					$("#morse_code").val(current["morse"]);
 					$("#found").text("");
 				}
-				else if ("play link" === event) {
-					if (!m["memory audio is play"]) {
-						return;
-					}
-
+				else if ("play link" === event && m["audio"]["object"] && !m["audio"]["object"].paused) {
 					$("#latin_text").val(current["latin"]);
 					$("#morse_code").val(current["morse"]);
 					$("#found").html(current["position"] + " <a href='" + current["link"] 
