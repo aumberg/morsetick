@@ -1,42 +1,50 @@
-var whatRequire = "That program require installed SoX programs - http://sox.sourceforge.net/";
-
-var jsdom  = require('jsdom');
-var fs = require('fs');
-var keypress = require('keypress');
-var querystring = require('querystring');
-var readline = require('readline');
-var request = require('request');
-var spawn  = require('child_process').spawn;
-var extend = require('util')._extend;
-var Duplex = require('stream').Duplex;
-var htmlDocument = fs.readFileSync("./index.html").toString();
-var scriptDocument = fs.readFileSync("./morsetick.js").toString();
-var audioSpawnedProcess;
-var tickSpawnedProcess;
+var whatRequire = "This program requires installed SoX programs - http://sox.sourceforge.net/";
 var option = {};
 
 option["key repeat speed"] = 250;
 
+console.log("Loading...");
+
+var fs = require('fs');
+var spawn = require('child_process').spawn;
+var querystring = require('querystring');
+
+var jsdom = require('jsdom');
+var request = require('request');
+var keypress = require('keypress');
+var readline = require('readline');
+
+var htmlDocument = fs.readFileSync(__dirname + "/index.html").toString();
+var scriptDocument = fs.readFileSync(__dirname + "/morsetick.js").toString();
+var audioSpawnedProcess;
+var tickSpawnedProcess;
+var timeoutAudioStartDelay;
+var timeoutTickStartDelay;
+
 function similarJQueryAjax(param, callback) {
-	var param = extend({
+	var paramSend = {
 		"url": ""
 		,"followRedirect": true
 		,"followAllRedirects": true
 		,"timeout": undefined
 		,"data": undefined
-	}, param);
+	};
 
-	if (param["data"]) {	
-		param["url"] += "?" + querystring.stringify(param["data"]);
+	param = (param || {});
+	paramSend["url"] = param["url"];
+	paramSend["timeout"] = param["timeout"];
+
+	if (param["data"]) {
+		paramSend["url"] += "?" + querystring.stringify(param["data"]);
 	}
 
-	var req = request(param, function(error, resp, body) {});
+	var req = request(paramSend, function(error, resp, body) {});
 
-	req.done = req.success = function(callback) {
+	req.done = req.success = (callback || function(callback) {
 		req.done = callback;
 
 		return req;
-	};
+	});
 
 	req.fail = req.error = function(callback) {
 		req.fail = callback;
@@ -63,47 +71,66 @@ function similarJQueryAjax(param, callback) {
 };
 
 function similarHTML5Audio() {
+	// maybe use https://www.npmjs.org/package/node-core-audio ?
+
 	var that = this;
+	var intervalDuration;
 
 	var createStream = function() {
-		if (audioSpawnedProcess) {
-			audioSpawnedProcess.kill("SIGSTOP");
-		}
-		
-		params = ["-q", "-t", "mp3", "-"];
+		params = ["-q", "-t", "mp3", "-v", that.volume, "-", "trim", that.duration];
 		audioSpawnedProcess = spawn("play", params);
 		audioSpawnedProcess.stdout.on("end", that.onend);
 
 		return audioSpawnedProcess;
-	}
+	};
+
+	var deleteStream = function() {
+		if (audioSpawnedProcess) {
+			audioSpawnedProcess.kill(); // "SIGHUP", "SIGSTOP"
+		}
+
+		audioSpawnedProcess = undefined;
+		intervalDuration = clearInterval(intervalDuration);
+	};
 
 	this.src = "";
+	this.duration = 0;
+	this.paused = true;
 
 	this.onend = function() {
+		that.paused = true;
+		deleteStream();
 		console.log("end?");
 		// m["command"]("n");
-	}
+	};
 
 	this.pause = function() {
-		if (audioSpawnedProcess) {
-			audioSpawnedProcess.kill("SIGSTOP");
-		}
-	}
+		deleteStream();
+	};
 
 	this.canPlayType = function() {
 		return true;
-	}
+	};
 
 	this.play = function() {
-		var stream = createStream();
+		deleteStream();
+
 		similarJQueryAjax({"url": that.src})
 			.on("data", function(data){
-				stream.stdin.write(data);
+				if (!audioSpawnedProcess) {
+					intervalDuration = setInterval(function() {
+						that.duration++;
+					}, 1000);
+
+					createStream();
+				}
+
+				audioSpawnedProcess.stdin.write(data);
 			})
 			.fail(function(){
-				m["red"]("Can't load file!!!!!");
+				m["red"]("Can't load file");
 			});
-	}
+	};
 
 	return this;
 };
@@ -120,23 +147,30 @@ function startMorsetick() {
 
 			window.morsetick.$.ajax = similarJQueryAjax;
 			window.Audio = similarHTML5Audio;
-			window.console.log = window.console.error = console.log
+			window.console.log = console.log;
+			window.console.error = console.error;
 
-			m["option dot duration"] = option["key repeat speed"] + 50;
+			m["option dot duration"] = option["key repeat speed"] + 10;
 			m["option console log"] = true;
 
 			m["event"] = function(event) {
 				if ("keyup" === event) {
-					// m["red"]("?", m["in history"]("current")["links"].length, m["in history"]("last")["source"]);
 				}
 				else if ("play link" === event) {
-					// m["green"]("\"" + m["morse"](m["in history"]("current")["morse"]) + "\"  ", m["in history"]("current")["morse"]);
 				}
 			};
 
 			m["tick"] = function(param) {
+				param = $.extend({
+					"timeout": 0 // in milliseconds
+					,"gain": (param ? 0.1 : 0)
+					,"type": "sine" // 'sine', 'square', 'sawtooth', or 'triangle'.
+					,"frequency": 440
+				}, param);
+
 				if (tickSpawnedProcess) {
-					tickSpawnedProcess.kill("SIGSTOP"); //"SIGHUP"
+					tickSpawnedProcess.kill(); // "SIGHUP", "SIGSTOP"
+					tickSpawnedProcess = undefined;
 				}
 
 				if (!param) {
@@ -144,7 +178,7 @@ function startMorsetick() {
 				}
 				// http://sox.sourceforge.net/sox.pdf
 				//["-q", "-n", "-c1", "synth", "sin", "%-12", "sin", "%-9", "sin", "%-5", "sin", "%-2", "fade", "h","1", "1"]);
-				var params = ["-q", "-n", "-c1", "synth", "sin", "%-12", "sin", "%-9", "sin", "%-5", "sin", "%-2", "fade", "h","1", "1"]; // ?
+				var params = ["-q","-n", "synth", "sin", param["frequency"], "fade", "0", param["timeout"] / 1000, (param["timeout"] - 1) / 1000, "vol", param["gain"]]; // ?
 				tickSpawnedProcess = spawn("play", params);
 			}
 
@@ -165,11 +199,11 @@ function startMorsetick() {
 					m["audio"]();
 
 					if (audioSpawnedProcess) {
-						audioSpawnedProcess.kill("SIGSTOP");
+						audioSpawnedProcess.kill(); // "SIGHUP", "SIGSTOP"
 					}
 
 					if (tickSpawnedProcess) {
-						tickSpawnedProcess.kill("SIGSTOP");
+						tickSpawnedProcess.kill(); // "SIGHUP", "SIGSTOP"
 					}
 
 					process.exit();
@@ -180,6 +214,14 @@ function startMorsetick() {
 		}
 	});
 };
+
+process.on('uncaughtException', function (error) {
+	if ("ECONNRESET" === error.code) { // why ?
+		return;
+	}
+
+	console.error("BIG ERROR :`(", error);
+});
 
 spawn("play", ["--version"]).stdout.on('data', function (data) {
 	if (!data.toString().match(/SoX/)) {

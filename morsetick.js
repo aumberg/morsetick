@@ -26,9 +26,9 @@
 
 	m["option audio volume"] = 75;
 	m["option console log"] = true;
-	m["option dot duration"] = 100; // Higher than "Key repeating delay" roughly at 50 milliseconds
+	m["option dot duration"] = 100; // slightly higher than "Key repeating delay" of your system value
 	m["option play next track"] = true;
-	m["option soundcloud client id"] = "4c4f5801e905988f9e73b2156c7fb5c4"; // Delete if not use "soundcloud"
+	m["option soundcloud client id"] = "4c4f5801e905988f9e73b2156c7fb5c4"; // delete if not use "soundcloud"
 
 	m["duration"] = function() {
 		var duration = {};
@@ -95,17 +95,15 @@
 		var last = m["memory current"] = m["in history"]("last");
 		
 		if (!last["link"]) {
-			m["red"]("firstly search music...");		
+			m["red"]("Firstly search music...");		
 		}
 		// toggle play & pause
 		else if (!name) {
-			if (m["memory audio is play"]) {
+			if (m["audio"]["object"] && !m["audio"]["object"].paused) {
 				m["audio"]({"command": "pause"});
-				m["memory audio is play"] = false;
 			}
 			else {
 				m["audio"]({"command": "play"});
-				m["memory audio is play"] = true;
 			}
 
 			m["link play"](true);
@@ -133,20 +131,25 @@
 	};
 	// use m["keydown"](true), if can't catch "keyup" event
 	m["keydown"] = function(isHaveOnlyKeydownEvent) {
+		var duration = m["duration"]();
+
 		if (m["memory is waiting for link play"]) {
 			return;
 		}
-		else if (!m["memory keyboard downtime"]) {
-			m["tick"]({"timeout": 10000});
-			m["memory keyboard downtime"] = (new Date()).getTime();
+		else if (m["memory keyboard downtime"]) {
+			var doubleDownDiff = (new Date()).getTime() - m["memory keyboard downtime"];
+
+			clearTimeout(m["memory timeout call"]);
+			m["memory timeout call"] = setTimeout(m["keyup"], duration["dot"] + ((duration["dot dash mean"] < doubleDownDiff) ? 0 : doubleDownDiff));
+
+			return;
 		}
-
-		var duration = m["duration"]();
-
+		
+		m["tick"]({"timeout": 5000});
 		m["clear timeouts"]();
-		m["audio"]();
-		m["memory keyboard uptime"] = undefined;
 		m["memory timeout call"] = setTimeout(m["keyup"], isHaveOnlyKeydownEvent ? duration["dot"] : duration["dash"]); // ?
+		m["memory keyboard downtime"] = (new Date()).getTime();
+		m["memory keyboard uptime"] = undefined;
 		m["event"]("keydown");
 	};
 	//
@@ -156,7 +159,6 @@
 		}
 
 		m["clear timeouts"]();
-		m["audio"]();
 		m["tick"]();
 		m["memory keyboard uptime"] = (new Date()).getTime();
 
@@ -165,6 +167,11 @@
 		var isDot = (uptimeDiff < duration["dot dash mean"]);
 
 		m["memory current"]["morse"] += isDot ? "." : "-";
+
+		if ("." !== m["memory current"]["morse"]) {
+			m["audio"]();
+		}
+
 		m["memory keyboard downtime"] = undefined;
 		m["memory current"]["latin"] = m["morse"](m["memory current"]["morse"]);
 		m["green"]("\"" + m["memory current"]["latin"] + "\"", m["memory current"]["morse"]);
@@ -213,7 +220,7 @@
 				});
 			}
 			else {
-				m["red"]("Don't play \"" + last["latin"] + "\" " + last["morse"]);
+				m["red"]("Not played");
 			}
 		}
 
@@ -458,7 +465,7 @@
 		param = $.extend({
 			"src": ""
 			,"object": m["audio"]["object"]
-			,"volume": m["option audio volume"]
+			,"volume": m["option audio volume"] //from 0 to 100
 			,"command": "pause" // "play"
 		}, param);
 
@@ -475,31 +482,32 @@
 
 			m["audio"]["object"] = param["object"];
 
-			param["object"].onplay = function() {
-				m["memory audio is play"] = true;
-			};
+			// param["object"].onplay = function() {};
 			param["object"].onended = function() {
-				m["memory audio is play"] = false;
-
+				param["object"].paused = true;
+				param["object"].duration = 0;
 				if (m["option play next track"]) {
 					m["command"]("n");
 				}
 			};
 			param["object"].onerror = function() {
-				m["memory audio is play"] = false;
+				param["object"].paused = true;
+				param["object"].duration = 0;
 				m["red"]("can't load or it's not audio");
 			};
 		}
 
 		param["object"].pause();
+		param["object"].paused = true;
 		param["object"].volume = param["volume"] / 100;
 
 		if (param["src"]) {
 			param["object"].src = param["src"];
+			param["object"].duration = 0;
 		}
 
 		if (param["object"].src && ("play" === param["command"])) {
-			m["memory audio is play"] = true;
+			param["object"].paused = false;
 			param["object"].play();
 		}
 
@@ -512,9 +520,9 @@
 
 		param = $.extend({
 			"timeout": 0 // in milliseconds
-			,"gain": (param ? 0.1 : 0)
+			,"gain": (param && param["timeout"] ? 0.1 : 0)
 			,"type": "sine" // 'sine', 'square', 'sawtooth', or 'triangle'.
-			,"frequency": 440
+			,"frequency": 440 // http://www.phy.mtu.edu/~suits/notefreqs.html
 			,"oscillator": m["tick"]["oscillator"]
 		}, param);
 
@@ -555,23 +563,22 @@
 				 masOfArgs.push(arguments[i]);
 			}
 
-			consoleFunction.apply(console, ["MorseTick v" + m["option program version"], (promt || ":-)")].concat(masOfArgs));
+			consoleFunction.apply(console, ["MorseTick v" + m["option program version"], (promt || ":")].concat(masOfArgs));
 		}
 	};
 
 	m["green"] = function() {
-		m["console"](console.log, arguments);
+		m["console"](console.log, arguments, ":-)");
 		m["tick"]({"timeout": 50, "frequency": 1046.50})
 	};
 
 	m["red"] = function() {
 		m["console"](console.error || console.log, arguments, ":`( Ops!");
-		m["tick"]({"timeout": 50, "frequency": 3000});
+		m["tick"]({"timeout": 50, "frequency": 2093});
 
 		return null;
 	};
 
-	m["memory audio is play"] = false;
 	m["memory is waiting for link play"] = false;
 
 	m["memory timeout tick"];
@@ -585,5 +592,5 @@
 	m["memory history"] = [];
 	m["memory current"] = m["in history"]();
 
-	m["event"] = $.noop; // Submit events to another...
+	m["event"] = $.noop; // submit events to another...
 }());
