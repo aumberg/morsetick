@@ -1,0 +1,34 @@
+{
+	"name": "morsetick",
+	"version": "0.1.0",
+	"description": "...",
+	"homepage": "http://aumberg.github.io/morsetick/",
+	"license": "Unlicense",
+	"main": "index.js",
+	"readmeFilename": "readme.md",
+	"author": {
+		"name": "Alexander Umberg",
+		"email": "slovastick@mail.ru",
+		"url": "https://github.com/aumberg"
+	},
+	"dependencies": {
+		"jsdom": "*",
+		"request": "*",
+		"keypress": "*"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git://github.com/aumberg/morsetick.git"
+	},
+	"keywords": [
+		"sox",
+		"beep",
+		"morse",
+		"player",
+		"soundcloud",
+		"raspberry pi"
+	],
+	"bugs": {
+		"url": "https://github.com/aumberg/morsetick/issues"
+	}
+}

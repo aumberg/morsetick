@@ -19,7 +19,7 @@
 	m["option program name"] = "MorseTick";
 	m["option program description"] = "...";
 	m["option program version"] = "0.1";
-	m["option program license"] = "http://unlicense.org/UNLICENSE";
+	m["option program license"] = "Unlicense" // http://unlicense.org/UNLICENSE
 	m["option program manifesto"] = "http://minifesto.org/";
 	m["option program source code"] = "https://github.com/aumberg/morsetick";
 	m["option program thanks"] = "Thanks for all, without who this program never looked like so. Oh, you are amazing!!!";
@@ -122,6 +122,20 @@
 		else if ("p" === name) {
 			m["memory current"]["position"]--;
 		}
+		// show links
+		else if ("l" === name) {
+			var linksWindow = window.open ? window.open("", "_blank") : undefined;
+			var links = m["links"]();
+
+			if (linksWindow) {
+				linksWindow.document.write(m["to html"](links));
+			}
+			
+			m["green"]("Links:\n\n" + JSON.stringify(links).replace(/},{/g, "},\n{") + "\n\n");
+			m["link play"](true);
+
+			return;
+		}
 		else {
 			m["red"]("bad command");		
 			m["clear input"]();
@@ -139,17 +153,17 @@
 		else if (m["memory keyboard downtime"]) {
 			var doubleDownDiff = (new Date()).getTime() - m["memory keyboard downtime"];
 
-			clearTimeout(m["memory timeout call"]);
-			m["memory timeout call"] = setTimeout(m["keyup"], duration["dot"] + ((duration["dot dash mean"] < doubleDownDiff) ? 0 : doubleDownDiff));
+			clearTimeout(m["memory timeout char space"]);
+			m["memory timeout char space"] = setTimeout(m["keyup"], duration["dot"] + ((duration["dot dash mean"] < doubleDownDiff) ? 0 : doubleDownDiff));
 
 			return;
 		}
 		
-		m["tick"]({"timeout": 5000});
 		m["clear timeouts"]();
-		m["memory timeout call"] = setTimeout(m["keyup"], isHaveOnlyKeydownEvent ? duration["dot"] : duration["dash"]); // ?
-		m["memory keyboard downtime"] = (new Date()).getTime();
+		m["tick"]({"timeout": 5000});
 		m["memory keyboard uptime"] = undefined;
+		m["memory keyboard downtime"] = (new Date()).getTime();
+		m["memory timeout char space"] = setTimeout(m["keyup"], isHaveOnlyKeydownEvent ? duration["dot"] : duration["dash"]); // ?
 		m["event"]("keydown");
 	};
 	//
@@ -159,7 +173,6 @@
 		}
 
 		m["clear timeouts"]();
-		m["tick"]();
 		m["memory keyboard uptime"] = (new Date()).getTime();
 
 		var duration = m["duration"]();
@@ -167,18 +180,15 @@
 		var isDot = (uptimeDiff < duration["dot dash mean"]);
 
 		m["memory current"]["morse"] += isDot ? "." : "-";
-
-		if ("." !== m["memory current"]["morse"]) {
-			m["audio"]();
-		}
-
 		m["memory keyboard downtime"] = undefined;
 		m["memory current"]["latin"] = m["morse"](m["memory current"]["morse"]);
-		m["green"]("\"" + m["memory current"]["latin"] + "\"", m["memory current"]["morse"]);
+		m["green"]();
 		m["event"]("keyup");
 
 		m["memory timeout char space"] = setTimeout(function() {
-			if ("?" === m["memory current"]["latin"].slice(-1)[0]) {
+			m["memory current"]["morse"] += " ";
+
+			if ("?" === m["memory current"]["latin"].slice(-1)) {
 				m["memory is waiting for link play"] = true;
 				m["clear timeouts"]();
 				setTimeout(m["link play"], 3000);
@@ -186,14 +196,19 @@
 				return;
 			}
 
-			m["memory current"]["morse"] += " ";
+			if (". " !== m["memory current"]["morse"].slice(0, 2)) {
+				m["audio"]();
+			}
+			// m["tick"]({"timeout": 40, "frequency": 1396.91});
 		}, duration["char space"]);
 		
 		m["memory timeout word space"] = setTimeout(function() {
+			// m["tick"]({"timeout": 30, "frequency": 1760.00});
 			m["memory current"]["morse"] += "  ";
 		}, duration["word space"]);
 
 		m["memory timeout call"] = setTimeout(function() {
+			// m["tick"]({"timeout": 20, "frequency": 2093.00});
 			m["search link and play"]();
 		}, duration["call"]);
 	};
@@ -206,18 +221,15 @@
 			var last = m["in history"]("push");
 
 			if (last["source"]) {
-				var info = "Playing: \"" + last["latin"] + "\"";
-
-				if (1 < last["position"]) {
-					info += " (" + last["position"] + " position)";
+				var info = {
+					"Date" : last["date"].toLocaleString()
+					,"Latin" : last["latin"]
+					,"Link" : last["link"]
+					,"Position" : (1 < last["position"]) ? last["position"] : undefined
 				}
 
-				info += ", At: " +  last["date"].toLocaleString() + ", Link: " + last["link"];
-
-				m["green"](info);
-				m["audio"]({
-					"src": last["source"], "command": "play"
-				});
+				m["green"](JSON.stringify(info));
+				m["audio"]({"src": last["source"], "command": "play"});
 			}
 			else {
 				m["red"]("Not played");
@@ -293,7 +305,7 @@
 		return links;
 	};
 
-	m["soundcloud search and play link"] = function(request) {
+	m["search link in soundcloud and play"] = function(request) {
 		var param = {
 			"url": "https://api.soundcloud.com/tracks/"
 			,"type": "GET"
@@ -338,6 +350,7 @@
 	};
 
 	m["search link and play"] = function(request) {
+		m["clear timeouts"]();
 		request = (request || m["memory current"]["latin"]);
 
 		if (!request) {
@@ -372,7 +385,7 @@
 		if (!m["memory current"]["links"].length && m["option soundcloud client id"]) {
 			// link =  link.replace(/&amp;/g, "&");
 			// element.attr("tabindex", (element.attr("tabindex") || "0")).focus();
-			m["soundcloud search and play link"](request);
+			m["search link in soundcloud and play"](request);
 
 			return;
 		}
@@ -381,56 +394,22 @@
 	};
 
 	m["links"] = function() {
-		var linksWindow = window.open("", "_blank");
-		var html = "<ol>";
+		var links = [];
 
 		for (var i = 0; i < m["memory history"].length; i++) {
 			var h = m["memory history"][i];
-			var link = (h["permalink_url"] || h["source"]);
+			var link = {
+				"Date" : h["date"]
+				,"Latin" : h["latin"]
+				,"Position" : (1 < h["position"]) ? h["position"] : undefined
+				,"Link" : (h["permalink_url"] || h["source"])
+			};
 
-			html += "<li>&nbsp;&nbsp;&nbsp;" + h["date"].toLocaleString();
-			html += "&nbsp;&nbsp;&nbsp;\"" + h["latin"] + "\"";
-
-			if (1 < h["position"]) {
-				html += "&nbsp;&nbsp;&nbsp;";
-				html += "(" + h["position"] + " position)";
-			}
-
-			html += "&nbsp;&nbsp;&nbsp;" + "<a href='" + h["link"] + "' target='_blank'>" + h["link"] + "</a></li>";
+			links.push(link);
 		};
 
-		html += "</ol>";
-		
-		linksWindow.document.write(html);
+		return links;
 	}
-
-	m["off"] = function() {
-		m["clear input"]();
-		$(window).add($("*", "body")).off(".morsetick");
-	};
-
-	$(m["on"] = function() {
-		m["off"]();
-
-		m["green"]("Welcome! MorseTick - " + m["option program description"]);
-		m["green"]("Project page - " + m["option program source code"]);
-
-		$(window)
-			// // experiment
-			// .on("mousemove.morsetick", function(event) {
-			// 	m["memory oscillator"].frequency.value = event.clientX + 300;
-			// })
-			.on("keyup.morsetick keydown.morsetick mouseup.morsetick mousedown.morsetick tap.morsetick", function(event) {
-				var isMouse = (1 === event.which);
-				var isControl = (17 === event.which);
-
-				if ((!isMouse && !isControl) || $(event.target).is("textarea, input, a, button, select")) {
-					return;
-				}
-
-				event.type.match(/tap|down/) ? m["keydown"]() : m["keyup"]();
-			});
-	});
 
 	m["clear timeouts"] = function() {
 		m["memory timeout char space"] = clearTimeout(m["memory timeout char space"]);
@@ -444,7 +423,41 @@
 		m["memory keyboard downtime"] = undefined;
 		m["memory is waiting for link play"] = false;
 		m["memory current"] = m["in history"]();
+	};	
+
+	m["off"] = function() {
+		m["clear input"]();
+		$(window).add($("*", "body")).off(".morsetick");
 	};
+
+	$(m["on"] = function() {
+		m["off"]();
+
+		m["green"]("Welcome! MorseTick - " + m["option program description"]);
+		m["green"]("Project page - " + m["option program source code"] + "\n");
+
+		var timeLastAction;
+
+		$(window)
+			// // experiment
+			// .on("mousemove.morsetick", function(event) {
+			// 	m["memory oscillator"].frequency.value = event.clientX + 300;
+			// })
+			.on("keyup.morsetick keydown.morsetick mouseup.morsetick mousedown.morsetick", function(event) {
+				var timeCurrent = (new Date()).getTime();
+				var isMouse = (1 === event.which);
+				var isControl = (17 === event.which);
+				var isVeryFast = (10 > (timeCurrent - timeLastAction));
+
+				if ((!isMouse && !isControl) || $(event.target).is("textarea, input, a, button, select")) {
+					return;
+				}
+
+				(event.type.match(/down/) || isVeryFast) ? m["keydown"]() : m["keyup"]();
+
+				timeLastAction = timeCurrent;
+			});
+	});
 
 	m["library escape regexp string"] = function(string) {
 		return string.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
@@ -459,6 +472,25 @@
 
 	m["self value"] = function(element) {
 		return (element.val() || m["self element clone"](element).text());
+	};
+
+	m["to html"] = function(param) {
+		var lines = ("string" === typeof param) ? param.split(/\n/g) : param;
+		var html = "<ol>";
+
+		for (var i in lines) {
+			var line = lines[i];
+
+			if ("object" === typeof line) {
+				line = JSON.stringify(line);
+			}
+
+			html += "<li>" + line + "</li>";
+		}
+
+		html += "</ol>";
+
+		return html.replace(" ", "&nbsp;");
 	};
 
 	m["audio"] = function(param) {
@@ -520,7 +552,7 @@
 
 		param = $.extend({
 			"timeout": 0 // in milliseconds
-			,"gain": (param && param["timeout"] ? 0.1 : 0)
+			,"gain": (param && param["timeout"]) ? 0.1 : 0
 			,"type": "sine" // 'sine', 'square', 'sawtooth', or 'triangle'.
 			,"frequency": 440 // http://www.phy.mtu.edu/~suits/notefreqs.html
 			,"oscillator": m["tick"]["oscillator"]
@@ -556,24 +588,25 @@
 	};
 
 	m["console"] = function(consoleFunction, arguments, promt) {
-		if (m["option console log"] && console && ("function" === typeof consoleFunction) && arguments.length) {
+		if (m["option console log"] && console && arguments.length && ("function" === typeof consoleFunction)) {
 			var masOfArgs = [];
 
 			for (var i = 0; i < arguments.length; i++) {
 				 masOfArgs.push(arguments[i]);
 			}
 
-			consoleFunction.apply(console, ["MorseTick v" + m["option program version"], (promt || ":")].concat(masOfArgs));
+			masOfArgs = [m["option program name"], "v" + m["option program version"] + (promt || ":")].concat(masOfArgs);
+			consoleFunction.apply(console, masOfArgs);
 		}
 	};
 
 	m["green"] = function() {
-		m["console"](console.log, arguments, ":-)");
+		m["console"](console.log, arguments, " :-)");
 		m["tick"]({"timeout": 50, "frequency": 1046.50})
 	};
 
 	m["red"] = function() {
-		m["console"](console.error || console.log, arguments, ":`( Ops!");
+		m["console"](console.error || console.log, arguments, " :'( Ops!");
 		m["tick"]({"timeout": 50, "frequency": 2093});
 
 		return null;
