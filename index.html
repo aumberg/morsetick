@@ -43,7 +43,7 @@
 			margin: 20px;
 		}
 
-		.main {
+		#main {
 			display: none;
 		}
 
@@ -54,7 +54,6 @@
 
 		#program {
 			text-align:center;
-			line-height: 15px;
 			margin: 15px;
 		}
 
@@ -74,23 +73,47 @@
 			font-size:50px;
 			text-align:center;
 		}
+
+		#xline {
+			width:100%;
+			margin: 0px;
+		}
 	</style>
 	<script type="text/javascript" src="morsetick.js"></script>
 	<script type="text/javascript">
 		m = window.morsetick;
 		$ = morsetick.$;
 
-		m["option console log"] = true;
-
 		$(function () {
-			$(".main").show();
-			$("#error").hide();
+			var elementFound = $("#found");
+			var elementLatinText = $("#latin_text");
+			var elementMorseCode = $("#morse_code");
 
-			$("#option_program_description").text(m["option program description"]);
-			$("#option_program_version").text(m["option program version"]);
+			$("#error").hide();
+			$("#main").show();
+
+			$("#option_program_version").text("v" + m["option program version"]);
+
+			$("#b_prev").click(function() {
+				m["command"]("p");
+			});
+
+			$("#b_next").click(function() {
+				m["command"]("n");
+			});
+
+			$("#b_play_toggle").click(m["command"]);
+
+			$("#volume").change(function() {
+				m["command"]("v", $(this).val());
+			});
 
 			$("#mmm_links").click(function() {
 				m["command"]("l");
+			});
+
+			$("#help").click(function() {
+				m["command"]("h");
 			});
 
 			$("#learn").click(function() {
@@ -98,7 +121,7 @@
 
 				$("table th")
 					.css({"visibility":"hidden"})
-					.prev().hover(
+					.prev().off().hover(
 						function(){
 							$(this).next().css({"visibility":"visible"});
 						},
@@ -107,55 +130,70 @@
 						});
 			});
 
-			$("#latin_text, #morse_code").keyup(function(event) {
+			elementLatinText.add(elementMorseCode).keyup(function(event) {
 				var request = $(this).val();
-				var converted = m["morse"](request);
-				var another = $("#latin_text, #morse_code").not(this);
+				var converted = m["morse"](request, false);
+				var another = elementLatinText.add(elementMorseCode).not(this);
 				
-				if (another.val() === converted) {
+				if (!converted || (another.val() === converted)) {
 					return;
 				}
 
-				m["clear timeouts"]();
-				m["memory timeout call"] = setTimeout(function() {
-					m["search link and play"](request);
-				}, 1000);
+				m["keyup"](true);
+				m["keyup"]["timeout stop"] = setTimeout(function() {
+					m["search"](request);
+				}, 2000);
 			});
 
-			m["event"] = function(event) {
+			m["event"] = function(eventName) {
 				var current = m["in history"]("current");
+				var html = "";
 
-				if ("keyup" === event) {
-					$("#latin_text").val(current["latin"]);
-					$("#morse_code").val(current["morse"]);
-					$("#found").text("");
+				elementLatinText.val(current["latin"]);
+				elementMorseCode.val(current["morse"]);
+
+				if (current["links"].length && ("play link" === eventName) 
+				&& m["audio"]["object"] && !m["audio"]["object"].paused) {
+					html = current["number"] + " <a href='" + current["link"] 
+						+ "' target='_blank'>link</a> of " + current["links"].length + " is playing.";
 				}
-				else if ("play link" === event && m["audio"]["object"] && !m["audio"]["object"].paused) {
-					$("#latin_text").val(current["latin"]);
-					$("#morse_code").val(current["morse"]);
-					$("#found").html(current["position"] + " <a href='" + current["link"] 
-						+ "' target='_blank'>link</a> of " + current["links"].length + " is playing");
-				}
+
+				elementFound.text("").html(html);
 			};
 		})
 	</script>
 </head>
 <body>
 	<h3 id="program">
-		<a href="https://github.com/aumberg/morsetick">MorseTick</a>
-		- <span id="option_program_description"></span>
-		<br/>
-		<br/>
-		version <span id="option_program_version"> - program not loaded</span>
+		<a href="https://github.com/aumberg/morsetick">MorseTick</a> 
+		(<span id="option_program_version">program not loaded</span>)
+		-
+		<span id="option_program_description">
+			old school, telegraphic audio player<br>
+			written in JavaScript, uses Morse code to search music localy and in
+		</span>		
+		<a href="https://soundcloud.com/" target="_blank">
+			soundcloud
+		</a>
 	</h3>
+	<br/>
 
 	<div id="error">Can not work in that browser</div>
 
-	<div class="main">
+	<div id="main">
 		<textarea id="latin_text" rows="2" tabindex="1"></textarea>
 		<div id="arrows">⇄</div>
 		<textarea id="morse_code" rows="2" tabindex="2"></textarea>
-	
+		<hr id="xline" color="#DDD"></hr>
+		<button id="b_prev">Prev</button><button id="b_next">Next</button><button id="b_play_toggle">Play/Pause</button>
+		volume:
+		<select id="volume">
+			<option>100</option>
+			<option selected="selected">75</option>
+			<option>50</option>
+			<option>25</option>
+			<option>0</option>
+		</select>
 		<div id="found" class="morsetickThereNoLinks"></div>
 
 		<table>
@@ -172,19 +210,15 @@
 			<tr><td>6</td><th>-....</th> <td>7</td><th>--...</th> <td>8</td><th>---..</th> <td>9</td><th>----.</th> <td>0</td><th>-----</th></tr>
 		</table>
 
-		<ul class="description">
+		<ol class="description">
 			<li>
-				Ok, just press <b>control</b> key, or click on page. Type some text, like 
+				Ok, just press <b>Control+M </b> keys, or click on page. Click in series to type some text in Morse code, for example 
 				<a href="http://www.html5guitartuner.com/notes/06-guitar-high-e-string.mp3" target="_blank">high e</a>
 				, <a href="http://www.html5guitartuner.com/notes/05-guitar-b-string.mp3" target="_blank">b</a>
 				, <a href="http://www.html5guitartuner.com/notes/04-guitar-g-string.mp3" target="_blank">g</a>
 				, <a href="http://www.html5guitartuner.com/notes/03-guitar-d-string.mp3" target="_blank">d</a>
 				, <a href="http://www.html5guitartuner.com/notes/02-guitar-a-string.mp3" target="_blank">a</a>
 				, <a href="http://www.html5guitartuner.com/notes/01-guitar-low-e-string.mp3" target="_blank">low e</a>
-				and <b>MorseTick</b> starts search music in current page and 
-				<a href="https://soundcloud.com/" target="_blank">
-					soundcloud
-				</a>
 			</li>
 			<li>
 				Drag and drop
@@ -204,16 +238,9 @@
 				<button id="mmm_links">Mmm... links )</button>
 			</li>
 			<li>
-				List of commands:
-				<select>
-					<option>e - toggle play &amp; pause</option>
-					<option>e n - next track</option>
-					<option>e p - previous track</option>
-					<option>e (position) - change track</option>
-					<option>e e (text) - search with E word</option>
-				</select>
+				<button id="help">Help</button>
 			</li>
-		</ul>
+		</ol>
 	</div>
 </body>
 </html>

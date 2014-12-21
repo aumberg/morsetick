@@ -1,7 +1,7 @@
 {
 	"name": "morsetick",
 	"version": "0.1.0",
-	"description": "...",
+	"description": "MorseTick - old school, telegraphic audio player",
 	"homepage": "http://aumberg.github.io/morsetick/",
 	"license": "Unlicense",
 	"main": "index.js",
@@ -24,9 +24,10 @@
 		"sox",
 		"beep",
 		"morse",
+		"audio",
 		"player",
-		"soundcloud",
-		"raspberry pi"
+		"raspberry",
+		"soundcloud"
 	],
 	"bugs": {
 		"url": "https://github.com/aumberg/morsetick/issues"
