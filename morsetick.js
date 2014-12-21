@@ -17,39 +17,41 @@
 	m["$"] = $;
 
 	m["option program name"] = "MorseTick";
-	m["option program description"] = "...";
 	m["option program version"] = "0.1";
-	m["option program license"] = "Unlicense" // http://unlicense.org/UNLICENSE
-	m["option program manifesto"] = "http://minifesto.org/";
-	m["option program source code"] = "https://github.com/aumberg/morsetick";
-	m["option program thanks"] = "Thanks for all, without who this program never looked like so. Oh, you are amazing!!!";
 
+	m["option console log"] = false;
 	m["option audio volume"] = 75;
-	m["option console log"] = true;
 	m["option dot duration"] = 100; // slightly higher than "Key repeating delay" of your system value
 	m["option play next track"] = true;
+	m["option keyboard shortcut"] = ["ctrl", "M"]; //ctrl, shift, meta, ...
 	m["option soundcloud client id"] = "4c4f5801e905988f9e73b2156c7fb5c4"; // delete if not use "soundcloud"
+
+	m["event"] = $.noop; // submit events to another...
+
+	// CORE SECTION	↓	↓	↓	↓	↓	↓	↓	↓	↓	↓	↓	↓	↓	↓	↓	↓	↓	↓	↓	↓	↓	↓	CORE SECTION
+
+	m = (window.morsetick || {});
 
 	m["duration"] = function() {
 		var duration = {};
 
-		duration["dot"] = m["option dot duration"];
+		duration["dot"] = (m["option dot duration"] || 100);
 		duration["dash"] = duration["dot"] * 3;
-		duration["char space"] = duration["dot"] * 3;
+		duration["character space"] = duration["dot"] * 3;
 		duration["word space"] = duration["dot"] * 7;
-		duration["call"] = duration["dot"] * 16;
+		duration["stop function"] = duration["dot"] * 16;
 		duration["dot dash mean"] = (duration["dash"] - duration["dot"]) / 2 + duration["dot"];
 
 		return duration;
 	}
 	// Morse code to latin, or backward
-	m["morse"] = function(string) {
+	m["morse"] = function(string, isMorseCode) {
 		if (!string) {
 			return "";
 		}
 
 		var codes = {
-			// Letters
+			// letters
 			"a": ".-",    "b": "-...",  "c": "-.-.",  "d": "-..",
 			"e": ".",     "f": "..-.",  "g": "--.",   "h": "....",
 			"i": "..",    "j": ".---",  "k": "-.-",   "l": ".-..",
@@ -57,18 +59,18 @@
 			"q": "--.-",  "r": ".-.",   "s": "...",   "t": "-",
 			"u": "..-",   "v": "...-",  "w": ".--",   "x": "-..-",
 			"y": "-.--",  "z": "--..",
-			// Numbers
+			// numbers
 			"1": ".----", "2": "..---", "3": "...--", "4": "....-", "5": ".....",
 			"6": "-....", "7": "--...", "8": "---..", "9": "----.", "0": "-----",
-	    };
-		var isMorse = !string.match(/[^\s.-]/);
-		var resultMassive = string.match(isMorse ? /(\s*\S+)/g : /(\s*)(\S)/g);
+		};
+		var isLatin = !!string.match(/[^\s.-]/);
+		var resultMassive = string.match(isLatin ? /(\s*)(\S)/g : /(\s*\S+)/g);
 
-		if (!resultMassive) {
+		if (!resultMassive || (isLatin === isMorseCode)) {
 			return "";
 		}
 
-		if (isMorse) {
+		if (!isLatin) {
 			for (var simbol in codes) {
 				codes[codes[simbol]] = simbol;
 				codes[simbol] = undefined;
@@ -78,11 +80,11 @@
 		for (var index in resultMassive) {
 			var mathed = resultMassive[index].match(/^(\s*)(\S+)$/);
 
-			if (isMorse) {
-				mathed[1] = (1 < mathed[1].length) ? " " : "";
+			if (isLatin) {
+				mathed[1] = mathed[1].length ? "   " : " ";
 			}
 			else {
-				mathed[1] = mathed[1].length ? "   " : " ";
+				mathed[1] = (1 < mathed[1].length) ? " " : "";
 			}
 			
 			resultMassive[index] = mathed[1] + (codes[mathed[2]] || "?");
@@ -90,15 +92,190 @@
 
 		return resultMassive.join("").replace(/^\s+|\s+$/g, "");
 	};
+	// use m["keydown"](true), if can't catch "keyup" event
+	m["keydown"] = function(isHaveOnlyKeydownEvent) {
+		m["keydown"]["wait"];
+		m["keydown"]["downtime"];
+		m["keydown"]["event"] = (m["keydown"]["event"] || function(){});
+
+		if (m["keydown"]["wait"]) {
+			return;
+		}
+		
+		var duration = m["duration"]();
+
+		m["keyup"](true);
+
+		if (m["keydown"]["downtime"]) {
+			var doubleDownDiff = (new Date()).getTime() - m["keydown"]["downtime"];
+			var delay = duration["dot"] + ((duration["dot dash mean"] < doubleDownDiff) ? 0 : 50);
+
+			m["keyup"]["timeout character"] = setTimeout(m["keyup"], delay);
+			m["keydown"]["event"]("double keydown", delay);
+
+			return;
+		}
+
+		var delay = (true === isHaveOnlyKeydownEvent) ? duration["dot"] : duration["dash"];
+
+		m["keydown"]["downtime"] = (new Date()).getTime();
+		m["keyup"]["timeout character"] = setTimeout(m["keyup"], delay);
+		m["keydown"]["event"]("keydown", delay);
+	};
+	//
+	m["keyup"] = function(isOnlyClearTimeouts) {
+		m["keyup"]["timeout stop"];
+		m["keyup"]["timeout word"];
+		m["keyup"]["timeout character"];
+		m["keyup"]["uptime"] = undefined;
+		m["keyup"]["event"] = (m["keyup"]["event"] || function(){});
+		m["keyup"]["morse code"] = (m["keyup"]["morse code"] || "");
+
+		if ((true !== isOnlyClearTimeouts) && (m["keydown"]["wait"] || !m["keydown"]["downtime"])) {
+			return;
+		}
+
+		m["keyup"]["timeout stop"] = clearTimeout(m["keyup"]["timeout stop"]);
+		m["keyup"]["timeout word"] = clearTimeout(m["keyup"]["timeout word"]);
+		m["keyup"]["timeout character"] = clearTimeout(m["keyup"]["timeout character"]);
+
+		if (true === isOnlyClearTimeouts) {
+			return;
+		}
+
+		m["keyup"]["uptime"] = (new Date()).getTime();
+
+		var duration = m["duration"]();
+		var uptimeDiff = m["keyup"]["uptime"] - m["keydown"]["downtime"];
+		var isDot = (uptimeDiff < duration["dot dash mean"]);
+
+		m["keyup"]["morse code"] += isDot ? "." : "-";
+		m["keyup"]["event"]("keyup");
+		m["keydown"]["downtime"] = undefined;
+
+		m["keyup"]["timeout character"] = setTimeout(function() {
+			m["keyup"]["morse code"] += " ";
+			m["keyup"]["event"]("character");
+		}, duration["character space"]);
+		
+		m["keyup"]["timeout word"] = setTimeout(function() {
+			m["keyup"]["morse code"] += "  ";
+			m["keyup"]["event"]("word");
+		}, duration["word space"]);
+
+		m["keyup"]["timeout stop"] = setTimeout(function() {
+			m["keyup"]["event"]("stop");
+		}, duration["stop function"]);
+	};
+
+	// CORE SECTION	↑	↑	↑	↑	↑	↑	↑	↑	↑	↑	↑	↑	↑	↑	↑	↑	↑	↑	↑	↑	↑	↑	CORE SECTION
+
+	m["keydown"]["event"] = function(eventName) {
+		if ("keydown" === eventName) {
+			m["tick"]({"timeout": m["duration"]()["dash"]});
+			m["event"]("keydown");
+		}
+	}
+
+	m["keyup"]["event"] = function(eventName) {
+		var current = m["in history"]("current");
+
+		if ("keyup" === eventName) {
+			current["morse"] = m["keyup"]["morse code"];
+			m["green"]();
+			m["event"]("keyup");
+		}
+		else if ("character" === eventName) {
+			// m["tick"]({"timeout": 40, "frequency": 1396.91});
+			var lastCharacter = current["latin"].slice(-1);
+
+			if (". " !== m["keyup"]["morse code"].slice(0, 2)) {
+				m["audio"]();
+			}
+
+			if ("?" === lastCharacter) {
+				m["keydown"]["wait"] = true;
+				m["keyup"](true);
+				setTimeout(m["link play"], 3000);
+			}
+		} else if ("word" === eventName) {
+			// m["tick"]({"timeout": 30, "frequency": 1760.00});
+		} else if ("stop" === eventName) {
+			// m["tick"]({"timeout": 20, "frequency": 2093.00});
+			m["search"]();
+		}
+	};
+
+	m["off"] = function() {
+		m["clear input"]();
+		$(window).add($("*", "body")).off(".morsetick");
+	};
+
+	$(m["on"] = function() {
+		m["off"]();
+
+		m["green"]("Welcome! Type \"e h\" (.   ....) for help");
+
+		$(window)
+			// // experiment
+			// .on("mousemove.morsetick", function(event) {
+			// 	if (m["tick"]["oscillator"]) {
+			// 		m["tick"]["oscillator"].frequency.value = event.clientX + 300;
+			// 	}
+			// })
+			.on("keydown.morsetick mousedown.morsetick touchstart.morsetick", function(event) {
+				var nextEvent = "";
+
+				if ("keydown" === event.type) {
+					for (var i in m["option keyboard shortcut"]) {
+						var buttonCurrent = String.fromCharCode(event.which);
+						var shortcut = m["option keyboard shortcut"][i];
+
+						if (!event[shortcut.toLowerCase() + "Key"] && (buttonCurrent !== shortcut.toUpperCase())) {
+							return;
+						}
+					}
+
+					nextEvent = "keyup.morsetick";
+					event.preventDefault();
+				}
+				else if ($(event.target).is("textarea, input, a, button, select")) {
+					return;
+				}
+				
+				if ("touchstart" === event.type) {
+					nextEvent = "touchend.morsetick";
+					$(this).off("mousedown.morsetick");
+				}
+				else if ("mousedown" === event.type) {
+					nextEvent = "mouseup.morsetick";
+				}
+
+				m["keydown"]();
+				$(this).off(nextEvent).one(nextEvent, m["keyup"]);
+			});
+	});
 
 	m["command"] = function(name, argString) {
 		var last = m["memory current"] = m["in history"]("last");
+		var isJustClear = false;
 		
-		if (!last["link"]) {
+		// write help
+		if ("h" === name) {
+			var helpWindow = window.open ? window.open("", "_blank") : undefined;
+
+			if (helpWindow) {
+				$("body", helpWindow.document).append($("<textarea style=\"height:100%;width:100%;\">").val(m["man"]));
+			}
+
+			m["green"](m["man"]);
+			isJustClear = true;
+		}
+		else if (!last["link"]) {
 			m["red"]("Firstly search music...");		
 		}
 		// toggle play & pause
-		else if (!name) {
+		else if (!name || ("string" !== typeof name)) {
 			if (m["audio"]["object"] && !m["audio"]["object"].paused) {
 				m["audio"]({"command": "pause"});
 			}
@@ -106,115 +283,56 @@
 				m["audio"]({"command": "play"});
 			}
 
-			m["link play"](true);
-
-			return;
+			isJustClear = true;
 		}
 		// change track
 		else if (parseInt(name)) {
-			m["memory current"]["position"] = parseInt(name);
+			m["memory current"]["number"] = parseInt(name);
 		}
 		// next track
 		else if ("n" === name) {
-			m["memory current"]["position"]++;
+			m["memory current"]["number"]++;
 		}
 		// previous track
 		else if ("p" === name) {
-			m["memory current"]["position"]--;
+			m["memory current"]["number"]--;
 		}
-		// show links
+		// volume
+		else if ("v" === name) {
+			var vol = parseInt(argString);
+
+			if (NaN !== vol && (0 <= vol) && (100 >= vol)) {
+				m["option audio volume"] = vol;
+				m["audio"]({"command": "pause"});
+				m["audio"]({"command": "play"});
+			}
+
+			isJustClear = true;
+		}
+		// show listened links
 		else if ("l" === name) {
 			var linksWindow = window.open ? window.open("", "_blank") : undefined;
 			var links = m["links"]();
+			var stringJson = JSON.stringify(links).replace(/},{/g, "},\n{");
 
 			if (linksWindow) {
-				linksWindow.document.write(m["to html"](links));
+				linksWindow.document.write(stringJson.replace(/\n/g, "<br>").replace(/\s/g, "&nbsp;"));
 			}
 			
-			m["green"]("Links:\n\n" + JSON.stringify(links).replace(/},{/g, "},\n{") + "\n\n");
-			m["link play"](true);
-
-			return;
+			m["green"]("Links:\n\n" + stringJson + "\n\n");
+			isJustClear = true;
 		}
 		else {
 			m["red"]("bad command");		
 			m["clear input"]();
 		}
 
-		m["link play"]();
-	};
-	// use m["keydown"](true), if can't catch "keyup" event
-	m["keydown"] = function(isHaveOnlyKeydownEvent) {
-		var duration = m["duration"]();
-
-		if (m["memory is waiting for link play"]) {
-			return;
-		}
-		else if (m["memory keyboard downtime"]) {
-			var doubleDownDiff = (new Date()).getTime() - m["memory keyboard downtime"];
-
-			clearTimeout(m["memory timeout char space"]);
-			m["memory timeout char space"] = setTimeout(m["keyup"], duration["dot"] + ((duration["dot dash mean"] < doubleDownDiff) ? 0 : doubleDownDiff));
-
-			return;
-		}
-		
-		m["clear timeouts"]();
-		m["tick"]({"timeout": 5000});
-		m["memory keyboard uptime"] = undefined;
-		m["memory keyboard downtime"] = (new Date()).getTime();
-		m["memory timeout char space"] = setTimeout(m["keyup"], isHaveOnlyKeydownEvent ? duration["dot"] : duration["dash"]); // ?
-		m["event"]("keydown");
-	};
-	//
-	m["keyup"] = function() {
-		if (!m["memory keyboard downtime"]) {
-			return;
-		}
-
-		m["clear timeouts"]();
-		m["memory keyboard uptime"] = (new Date()).getTime();
-
-		var duration = m["duration"]();
-		var uptimeDiff = m["memory keyboard uptime"] - m["memory keyboard downtime"];
-		var isDot = (uptimeDiff < duration["dot dash mean"]);
-
-		m["memory current"]["morse"] += isDot ? "." : "-";
-		m["memory keyboard downtime"] = undefined;
-		m["memory current"]["latin"] = m["morse"](m["memory current"]["morse"]);
-		m["green"]();
-		m["event"]("keyup");
-
-		m["memory timeout char space"] = setTimeout(function() {
-			m["memory current"]["morse"] += " ";
-
-			if ("?" === m["memory current"]["latin"].slice(-1)) {
-				m["memory is waiting for link play"] = true;
-				m["clear timeouts"]();
-				setTimeout(m["link play"], 3000);
-
-				return;
-			}
-
-			if (". " !== m["memory current"]["morse"].slice(0, 2)) {
-				m["audio"]();
-			}
-			// m["tick"]({"timeout": 40, "frequency": 1396.91});
-		}, duration["char space"]);
-		
-		m["memory timeout word space"] = setTimeout(function() {
-			// m["tick"]({"timeout": 30, "frequency": 1760.00});
-			m["memory current"]["morse"] += "  ";
-		}, duration["word space"]);
-
-		m["memory timeout call"] = setTimeout(function() {
-			// m["tick"]({"timeout": 20, "frequency": 2093.00});
-			m["search link and play"]();
-		}, duration["call"]);
+		m["event"]("command", [name, argString]);
+		m["link play"](isJustClear);
 	};
 
-	m["link play"] = function(justClear) {
-		if (true === justClear) {
+	m["link play"] = function(isJustClear) {
+		if (true === isJustClear) {
 			m["green"]();
 		}
 		else {
@@ -225,7 +343,7 @@
 					"Date" : last["date"].toLocaleString()
 					,"Latin" : last["latin"]
 					,"Link" : last["link"]
-					,"Position" : (1 < last["position"]) ? last["position"] : undefined
+					,"Number" : (1 < last["number"]) ? last["number"] : undefined
 				}
 
 				m["green"](JSON.stringify(info));
@@ -241,30 +359,37 @@
 	};
 
 	m["in history"] = function(paramString) {
-		last = {};
-		last["position"] = 1;
-		last["soundcloud traks"] = [];
-		last["links"] = [];
+		var obj = {};
+		obj["date"] = new Date();
+		obj["number"] = 1;
+		obj["soundcloud traks"] = [];
+		obj["links"] = [];
+		obj["morse"] = "";
+		obj["latin"] = "";
 
 		if (("current" === paramString) || ("push" === paramString)) {
-			last = $.extend(last, m["memory current"]);
+			obj = m["memory current"] = $.extend(obj, m["memory current"]);
 		}
-		
-		last["latin"] = (last["latin"] || m["morse"](last["morse"]));
-		last["morse"] = (last["morse"] || m["morse"](last["latin"]));
-		last["date"] = new Date();
-		last["permalink_url"] = (last["soundcloud traks"][last["position"] - 1] || [])["permalink_url"];
-		last["source"] = (last["links"][last["position"] - 1] || "");
-		last["link"] = (last["permalink_url"] || last["source"]);
-		
-		if ("last" === paramString) {
-			last = $.extend(last, morsetick["memory history"].slice(-1)[0]);
-		}
-		else if (last["link"] && ("push" === paramString)) {
-			m["memory history"].push(last);
+		else if ("last" === paramString) {
+			obj = $.extend(obj, m["memory history"].slice(-1)[0]);
 		}
 
-		return last;
+		if (obj["morse"].length > m["morse"](obj["latin"], false).length) {
+			obj["latin"] = m["morse"](obj["morse"], true);
+		}
+		else {
+			obj["morse"] = m["morse"](obj["latin"], false);
+		}
+		
+		obj["permalink_url"] = (obj["soundcloud traks"][obj["number"] - 1] || [])["permalink_url"];
+		obj["source"] = (obj["links"][obj["number"] - 1] || "");
+		obj["link"] = (obj["permalink_url"] || obj["source"]);
+		
+		if (obj["link"] && ("push" === paramString)) {
+			m["memory history"].push(obj);
+		}
+
+		return obj;
 	};
 
 	m["find links"] = function(string, request) {
@@ -316,6 +441,8 @@
 				,"client_id": m["option soundcloud client id"]
 				,"format": "json"
 				,"streamable": true
+				,"filter": "streamable"
+				,"order": "hotness" // "hotness", "created_at"
 				,"limit": 100
 			}
 		};
@@ -323,6 +450,8 @@
 		$.ajax(param)
 			.done(
 				function(traks) {
+					var current = m["in history"]("current");
+					
 					traks = ("string" === typeof traks) ? $.parseJSON(traks) : traks;
 
 					if (traks.length) {
@@ -332,8 +461,8 @@
 							}
 
 							traks[i].stream_url += "?client_id=" + param["data"]["client_id"];
-							m["memory current"]["links"].push(traks[i].stream_url);
-							m["memory current"]["soundcloud traks"].push(traks[i]);
+							current["links"].push(traks[i].stream_url);
+							current["soundcloud traks"].push(traks[i]);
 						}
 					}
 					else if (traks.errors) {
@@ -349,9 +478,11 @@
 			.always(m["link play"]);
 	};
 
-	m["search link and play"] = function(request) {
-		m["clear timeouts"]();
-		request = (request || m["memory current"]["latin"]);
+	m["search"] = function(request) {
+		var current = m["in history"]("current");
+
+		m["keyup"](true);
+		request = current["latin"] = (request || current["latin"]);
 
 		if (!request) {
 			m["link play"](true);
@@ -359,30 +490,29 @@
 			return;
 		}
 
-		m["memory current"]["latin"] = request;
-		m["memory is waiting for link play"] = true;
+		m["keydown"]["wait"] = true;
 
 		var match = request.match(/^e$|^e\s+(\S*)(\s*)(.*)$/i);
 		var html = "";
-		
+
 		if (match) {
 			if ("e" !== match[1]) {
 				m["command"](match[1], match[3]);
 
 				return;
 			}
-			// search with E word
-			request = m["memory current"]["latin"] = match[1] + match[2] + match[3];
+			// search with 'e ' at start
+			request = match.slice(1).join("");
 			//
 		}
-	
+
 		$(":visible:not(:text):not(.morsetickThereNoLinks *)").each(function() {
 			html += "\n" + m["self element clone"](this)[0].outerHTML;
 		});
 
-		m["memory current"]["links"] = m["find links"](html, request);
+		current["links"] = m["find links"](html, request);
 
-		if (!m["memory current"]["links"].length && m["option soundcloud client id"]) {
+		if (!current["links"].length && m["option soundcloud client id"]) {
 			// link =  link.replace(/&amp;/g, "&");
 			// element.attr("tabindex", (element.attr("tabindex") || "0")).focus();
 			m["search link in soundcloud and play"](request);
@@ -401,7 +531,7 @@
 			var link = {
 				"Date" : h["date"]
 				,"Latin" : h["latin"]
-				,"Position" : (1 < h["position"]) ? h["position"] : undefined
+				,"Number" : h["number"]
 				,"Link" : (h["permalink_url"] || h["source"])
 			};
 
@@ -411,53 +541,13 @@
 		return links;
 	}
 
-	m["clear timeouts"] = function() {
-		m["memory timeout char space"] = clearTimeout(m["memory timeout char space"]);
-		m["memory timeout call"] = clearTimeout(m["memory timeout call"]);
-		m["memory timeout word space"] = clearTimeout(m["memory timeout word space"]);
-	};
-
 	m["clear input"] = function() {
-		m["clear timeouts"]();
-
-		m["memory keyboard downtime"] = undefined;
-		m["memory is waiting for link play"] = false;
+		m["keyup"](true);
 		m["memory current"] = m["in history"]();
+		m["keyup"]["morse code"] = "";
+		m["keydown"]["downtime"] = undefined;
+		m["keydown"]["wait"] = false;
 	};	
-
-	m["off"] = function() {
-		m["clear input"]();
-		$(window).add($("*", "body")).off(".morsetick");
-	};
-
-	$(m["on"] = function() {
-		m["off"]();
-
-		m["green"]("Welcome! MorseTick - " + m["option program description"]);
-		m["green"]("Project page - " + m["option program source code"] + "\n");
-
-		var timeLastAction;
-
-		$(window)
-			// // experiment
-			// .on("mousemove.morsetick", function(event) {
-			// 	m["memory oscillator"].frequency.value = event.clientX + 300;
-			// })
-			.on("keyup.morsetick keydown.morsetick mouseup.morsetick mousedown.morsetick", function(event) {
-				var timeCurrent = (new Date()).getTime();
-				var isMouse = (1 === event.which);
-				var isControl = (17 === event.which);
-				var isVeryFast = (10 > (timeCurrent - timeLastAction));
-
-				if ((!isMouse && !isControl) || $(event.target).is("textarea, input, a, button, select")) {
-					return;
-				}
-
-				(event.type.match(/down/) || isVeryFast) ? m["keydown"]() : m["keyup"]();
-
-				timeLastAction = timeCurrent;
-			});
-	});
 
 	m["library escape regexp string"] = function(string) {
 		return string.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
@@ -472,25 +562,6 @@
 
 	m["self value"] = function(element) {
 		return (element.val() || m["self element clone"](element).text());
-	};
-
-	m["to html"] = function(param) {
-		var lines = ("string" === typeof param) ? param.split(/\n/g) : param;
-		var html = "<ol>";
-
-		for (var i in lines) {
-			var line = lines[i];
-
-			if ("object" === typeof line) {
-				line = JSON.stringify(line);
-			}
-
-			html += "<li>" + line + "</li>";
-		}
-
-		html += "</ol>";
-
-		return html.replace(" ", "&nbsp;");
 	};
 
 	m["audio"] = function(param) {
@@ -518,6 +589,7 @@
 			param["object"].onended = function() {
 				param["object"].paused = true;
 				param["object"].duration = 0;
+
 				if (m["option play next track"]) {
 					m["command"]("n");
 				}
@@ -578,10 +650,10 @@
 		param["oscillator"].type = param["type"];
 		param["oscillator"].gain.gain.value = param["gain"];
 
-		m["memory timeout tick"] = clearTimeout(m["memory timeout tick"]);
+		m["tick"]["timeout tick"] = clearTimeout(m["tick"]["timeout tick"]);
 
 		if (param["timeout"]) {
-			m["memory timeout tick"] = setTimeout(m["tick"], param["timeout"]);
+			m["tick"]["timeout tick"] = setTimeout(m["tick"], param["timeout"]);
 		}
 
 		return param["oscillator"];
@@ -612,18 +684,66 @@
 		return null;
 	};
 
-	m["memory is waiting for link play"] = false;
-
-	m["memory timeout tick"];
-	m["memory timeout char space"];
-	m["memory timeout call"];
-	m["memory timeout word space"];
-
-	m["memory keyboard downtime"];
-	m["memory keyboard uptime"];
-
 	m["memory history"] = [];
 	m["memory current"] = m["in history"]();
 
-	m["event"] = $.noop; // submit events to another...
+	m["man"] = "\n" +
+		" _____________________________________________________________ " + "\n" +
+		"|                                                             |" + "\n" +
+		"|NAME                                                         |" + "\n" +
+		"|     MorseTick - old school, telegraphic audio player        |" + "\n" +
+		"|                                                             |" + "\n" +
+		"|DESCRIPTION                                                  |" + "\n" +
+		"|     MorseTick - old school, telegraphic audio player written|" + "\n" +
+		"|     in JavaScript, uses Morse code to search music locally  |" + "\n" +
+		"|     and in soundcloud (https://soundcloud.com/). Script can |" + "\n" +
+		"|     used in your own application to obtain Morse code power.|" + "\n" +
+		"|                                                             |" + "\n" +
+		"|     Usage type:                                             |" + "\n" +
+		"|          1) In browser, by include script 'morsetick.js'.   |" + "\n" + 
+		"|                                                             |" + "\n" + 
+		"|          2) From system console. Support search local music.|" + "\n" + 
+		"|          Сan work in Raspberry PI (http://raspberrypi.org/).|" + "\n" +
+		"|          Requires installed:                                |" + "\n" +
+		"|               * NodeJs (http://nodejs.org/)                 |" + "\n" + 
+		"|               * SoX (http://sox.sourceforge.net/)           |" + "\n" + 
+		"|                                                             |" + "\n" +
+		"|GET STARTED                                                  |" + "\n" + 
+		"|     Click in series default shortcut Control+M              |" + "\n" +
+		"|     to search by Morse code                                 |" + "\n" +
+		"|                                                             |" + "\n" +
+		"|COMMANDS                                                     |" + "\n" +
+		"|     e - toggle play & pause                                 |" + "\n" +
+		"|     e n - Next track                                        |" + "\n" +
+		"|     e p - Previous track                                    |" + "\n" +
+		"|     e (number) - change track number                        |" + "\n" +
+		"|     e v - set Volume (from 0 to 100)                        |" + "\n" +
+		"|     e h - show this Help                                    |" + "\n" + 
+		"|     e l - show listened Links                               |" + "\n" +
+		"|     e e (text) - search with 'e ' at start                  |" + "\n" + 
+		"|                                                             |" + "\n" + 
+		"|COPYRIGHT                                                    |" + "\n" + 
+		"|     License - http://unlicense.org/UNLICENSE                |" + "\n" + 
+		"|     Manifesto - http://minifesto.org/                       |" + "\n" + 
+		"|     Project page - https://github.com/aumberg/morsetick     |" + "\n" + 
+		"|                                                             |" + "\n" + 
+		"|AUTHOR                                                       |" + "\n" + 
+		"|     Alexander Umberg (slovastick@mail.ru)                   |" + "\n" + 
+		"|     on GitHub - https://github.com/aumberg                  |" + "\n" + 
+		"|                                                             |" + "\n" + 
+		"|Thanks for all, without who this program never looked like so|" + "\n" + 
+		"|                                    ...Oh, you are amazing!!!|" + "\n" + 
+		"|                                                             |" + "\n" + 
+		"|MORSE CODES                                                  |" + "\n" + 
+		"| a .-         b -...       c -.-.       d -..                |" + "\n" + 
+		"| e .          f ..-.       g --.        h ....               |" + "\n" + 
+		"| i ..         j .---       k -.-        l .-..               |" + "\n" + 
+		"| m --         n -.         o ---        p .--.               |" + "\n" + 
+		"| q --.-       r .-.        s ...        t -                  |" + "\n" + 
+		"| u ..-        v ...-       w .--        x -..-               |" + "\n" + 
+		"| y -.--       z --..                                         |" + "\n" + 
+		"|                                                             |" + "\n" + 
+		"| 1 .----      2 ..---      3 ...--      4 ....-      5 ..... |" + "\n" + 
+		"| 6 -....      7 --...      8 ---..      9 ----.      0 ----- |" + "\n" + 
+		"|_____________________________________________________________|" + "\n";
 }());
