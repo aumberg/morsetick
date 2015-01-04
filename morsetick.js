@@ -20,29 +20,32 @@
 	m["option program version"] = "0.1";
 
 	m["option console log"] = false;
-	m["option audio volume"] = 75;
+	m["option audio volume"] = 7;
 	m["option dot duration"] = 100; // slightly higher than "Key repeating delay" of your system value
 	m["option play next track"] = true;
-	m["option keyboard shortcut"] = ["ctrl", "M"]; //ctrl, shift, meta, ...
 	m["option soundcloud client id"] = "4c4f5801e905988f9e73b2156c7fb5c4"; // delete if not use "soundcloud"
+	m["option duration"] = {
+		"dot": 100
+	};
 
-	m["event"] = $.noop; // submit events to another...
+	m["external event listener"] = function() {}; // submit events to another
 
 	// CORE SECTION	↓	↓	↓	↓	↓	↓	↓	↓	↓	↓	↓	↓	↓	↓	↓	↓	↓	↓	↓	↓	↓	↓	CORE SECTION
 
 	m = (window.morsetick || {});
+	m["event"] = (m["event"] || function() {}); // simple event listener
 
 	m["duration"] = function() {
-		var duration = {};
+		var d = (m["option duration"] || {});
 
-		duration["dot"] = (m["option dot duration"] || 100);
-		duration["dash"] = duration["dot"] * 3;
-		duration["character space"] = duration["dot"] * 3;
-		duration["word space"] = duration["dot"] * 7;
-		duration["stop function"] = duration["dot"] * 16;
-		duration["dot dash mean"] = (duration["dash"] - duration["dot"]) / 2 + duration["dot"];
+		d["dot"] = (d["dot"] || 100);
+		d["dash"] = (d["dash"] || (d["dot"] * 3));
+		d["character space"] = (d["character space"] || (d["dot"] * 3));
+		d["word space"] = (d["word space"] || (d["dot"] * 7));
+		d["stop function"] = (d["stop function"] || (d["dot"] * 16));
+		d["dot dash mean"] = (d["dot dash mean"] || ((d["dash"] - d["dot"]) / 2 + d["dot"]));
 
-		return duration;
+		return d;
 	}
 	// Morse code to latin, or backward
 	m["morse"] = function(string, isMorseCode) {
@@ -96,7 +99,6 @@
 	m["keydown"] = function(isHaveOnlyKeydownEvent) {
 		m["keydown"]["wait"];
 		m["keydown"]["downtime"];
-		m["keydown"]["event"] = (m["keydown"]["event"] || function(){});
 
 		if (m["keydown"]["wait"]) {
 			return;
@@ -111,7 +113,7 @@
 			var delay = duration["dot"] + ((duration["dot dash mean"] < doubleDownDiff) ? 0 : 50);
 
 			m["keyup"]["timeout character"] = setTimeout(m["keyup"], delay);
-			m["keydown"]["event"]("double keydown", delay);
+			m["event"]("double keydown", delay);
 
 			return;
 		}
@@ -120,15 +122,11 @@
 
 		m["keydown"]["downtime"] = (new Date()).getTime();
 		m["keyup"]["timeout character"] = setTimeout(m["keyup"], delay);
-		m["keydown"]["event"]("keydown", delay);
+		m["event"]("keydown", delay);
 	};
 	//
 	m["keyup"] = function(isOnlyClearTimeouts) {
-		m["keyup"]["timeout stop"];
-		m["keyup"]["timeout word"];
-		m["keyup"]["timeout character"];
 		m["keyup"]["uptime"] = undefined;
-		m["keyup"]["event"] = (m["keyup"]["event"] || function(){});
 		m["keyup"]["morse code"] = (m["keyup"]["morse code"] || "");
 
 		if ((true !== isOnlyClearTimeouts) && (m["keydown"]["wait"] || !m["keydown"]["downtime"])) {
@@ -150,71 +148,38 @@
 		var isDot = (uptimeDiff < duration["dot dash mean"]);
 
 		m["keyup"]["morse code"] += isDot ? "." : "-";
-		m["keyup"]["event"]("keyup");
+		m["event"]("keyup");
 		m["keydown"]["downtime"] = undefined;
 
 		m["keyup"]["timeout character"] = setTimeout(function() {
 			m["keyup"]["morse code"] += " ";
-			m["keyup"]["event"]("character");
+			m["event"]("character");
 		}, duration["character space"]);
-		
+
 		m["keyup"]["timeout word"] = setTimeout(function() {
 			m["keyup"]["morse code"] += "  ";
-			m["keyup"]["event"]("word");
+			m["event"]("word");
 		}, duration["word space"]);
 
 		m["keyup"]["timeout stop"] = setTimeout(function() {
-			m["keyup"]["event"]("stop");
+			m["event"]("stop");
 		}, duration["stop function"]);
 	};
 
 	// CORE SECTION	↑	↑	↑	↑	↑	↑	↑	↑	↑	↑	↑	↑	↑	↑	↑	↑	↑	↑	↑	↑	↑	↑	CORE SECTION
 
-	m["keydown"]["event"] = function(eventName) {
-		if ("keydown" === eventName) {
-			m["tick"]({"timeout": m["duration"]()["dash"]});
-			m["event"]("keydown");
-		}
-	}
-
-	m["keyup"]["event"] = function(eventName) {
-		var current = m["in history"]("current");
-
-		if ("keyup" === eventName) {
-			current["morse"] = m["keyup"]["morse code"];
-			m["green"]();
-			m["event"]("keyup");
-		}
-		else if ("character" === eventName) {
-			// m["tick"]({"timeout": 40, "frequency": 1396.91});
-			var lastCharacter = current["latin"].slice(-1);
-
-			if (". " !== m["keyup"]["morse code"].slice(0, 2)) {
-				m["audio"]();
-			}
-
-			if ("?" === lastCharacter) {
-				m["keydown"]["wait"] = true;
-				m["keyup"](true);
-				setTimeout(m["link play"], 3000);
-			}
-		} else if ("word" === eventName) {
-			// m["tick"]({"timeout": 30, "frequency": 1760.00});
-		} else if ("stop" === eventName) {
-			// m["tick"]({"timeout": 20, "frequency": 2093.00});
-			m["search"]();
-		}
-	};
-
 	m["off"] = function() {
-		m["clear input"]();
 		$(window).add($("*", "body")).off(".morsetick");
+		m["clear input"]();
+		m["audio"]();
+		m["tick"]();
 	};
 
 	$(m["on"] = function() {
-		m["off"]();
+		var lastCharacter = "";
 
-		m["green"]("Welcome! Type \"e h\" (.   ....) for help");
+		m["off"]();
+		m["green"]("Welcome! Type \"e h\" (.   ....) for help. Press \"Esc\" for quit.");
 
 		$(window)
 			// // experiment
@@ -224,26 +189,83 @@
 			// 	}
 			// })
 			.on("keydown.morsetick mousedown.morsetick touchstart.morsetick", function(event) {
-				var nextEvent = "";
+				var nextEvent = "keyup.morsetick";
+				var isKeydown = ("keydown" === event.type);
+				var isShortcut = (event.ctrlKey || event.metaKey);
+				var isHaveOnlyKeydownEvent = (event.isHaveOnlyKeydownEvent || false);
+				var character = (event.character || String.fromCharCode(event.which)).toLowerCase();
 
-				if ("keydown" === event.type) {
-					for (var i in m["option keyboard shortcut"]) {
-						var buttonCurrent = String.fromCharCode(event.which);
-						var shortcut = m["option keyboard shortcut"][i];
-
-						if (!event[shortcut.toLowerCase() + "Key"] && (buttonCurrent !== shortcut.toUpperCase())) {
-							return;
-						}
-					}
-
-					nextEvent = "keyup.morsetick";
-					event.preventDefault();
-				}
-				else if ($(event.target).is("textarea, input, a, button, select")) {
+				if (isShortcut
+				|| m["keydown"]["wait"]
+				|| $(event.target).is("textarea, input")
+				|| (!isKeydown && $(event.target).is("a, button, select"))) {
 					return;
 				}
-				
-				if ("touchstart" === event.type) {
+
+				if (!isKeydown && m["memory is noob mode"]) {
+					m["memory is noob mode"] = false;
+					m["keyup"]["morse code"] += "   ";
+				}
+
+				if (isKeydown) {
+					var isLetter = (!!(event.character || "").match(/^\S$/) || !!character.match(/^\w$/));
+					var isSpace = !!character.match(/\s/);
+					var isEnter = (13 === event.which);
+					var isBackspace = (8 === event.which);
+					var isUnknown = (!isLetter && !isSpace && !isEnter && !isBackspace)
+					var current = m["in history"]("current");
+
+					m["keyup"](true);
+					$(this).off(nextEvent);
+					lastCharacter = current["latin"] ? lastCharacter : "";
+
+					if (isUnknown || (!current["latin"] && (isSpace || isEnter))) {
+						return;
+					}
+
+					event.preventDefault();
+
+					if (isBackspace && (2 > current["latin"].length)) {
+						character = "";
+						m["clear input"]();
+						current = m["in history"]("current");
+					}
+					else if (isBackspace && current["latin"]) {
+						character = "";
+						current["latin"] = current["latin"].slice(0, -1);
+					}
+					else if (isEnter && current["latin"]) {
+						return m["search"]();
+					}
+					else if (lastCharacter && current["latin"] && !m["memory is noob mode"] && (lastCharacter !== character)) {
+						m["memory is noob mode"] = true;
+						current["latin"] = current["latin"].slice(0, -1) + lastCharacter + character;
+					}
+					else if ((isLetter || isSpace) && m["memory is noob mode"]) {
+						current["latin"] += character;
+					}
+
+					lastCharacter = character;
+					current["morse"] = m["morse"](current["latin"], false);
+
+					if (m["memory is noob mode"]) {
+						m["keyup"]["morse code"] = current["morse"];
+						m["event"]("keyup");
+						m["search"](current["latin"], true);
+
+						return;
+					}
+					else if (isBackspace) {
+						if (current["morse"]) {
+							m["keyup"]["morse code"] = current["morse"] + " ";
+						}
+
+						m["event"]("keyup");
+
+						return;
+					}
+				}
+				else if ("touchstart" === event.type) {
 					nextEvent = "touchend.morsetick";
 					$(this).off("mousedown.morsetick");
 				}
@@ -251,14 +273,55 @@
 					nextEvent = "mouseup.morsetick";
 				}
 
-				m["keydown"]();
+				m["keydown"](isHaveOnlyKeydownEvent);
 				$(this).off(nextEvent).one(nextEvent, m["keyup"]);
 			});
 	});
 
+	m["event"] = function(eventName) {
+		var current = m["in history"]("current");
+
+		if ("keydown" === eventName) {
+			m["tick"]({"timeout": m["duration"]()["dash"]});
+		}
+		else if ("keyup" === eventName) {
+			current["morse"] = m["keyup"]["morse code"];
+			current = m["in history"]("current");
+
+			if (".    " !== (current["morse"] + "    ").slice(0, 5)) {
+				m["audio"]();
+			}
+
+			var msg = JSON.stringify({
+				"Latin": current["latin"]
+				,"Morse": current["morse"]
+			});
+
+			m["green"](msg);
+			// m["tick"]();
+		}
+		else if ("character" === eventName) {
+			if ("?" === current["latin"].slice(-1)) {
+				m["keydown"]["wait"] = true;
+				m["keyup"](true);
+				setTimeout(m["link play"], 3000);
+			}
+		}
+		else if ("start search" === eventName) {
+			m["tick"]({"timeout": 30, "frequency": 329.63});
+		}
+
+		m["external event listener"].apply(this, arguments);
+
+		if ("stop" === eventName) {
+			m["search"]();
+		}
+	};
+
 	m["command"] = function(name, argString) {
-		var last = m["memory current"] = m["in history"]("last");
-		var isJustClear = false;
+		var current = m["memory current"] = m["in history"]("last");
+
+		m["event"]("start command", arguments);
 		
 		// write help
 		if ("h" === name) {
@@ -269,10 +332,9 @@
 			}
 
 			m["green"](m["man"]);
-			isJustClear = true;
 		}
-		else if (!last["link"]) {
-			m["red"]("Firstly search music...");		
+		else if (!current["link"]) {
+			m["red"]("Firstly search music");		
 		}
 		// toggle play & pause
 		else if (!name || ("string" !== typeof name)) {
@@ -282,32 +344,31 @@
 			else {
 				m["audio"]({"command": "play"});
 			}
-
-			isJustClear = true;
 		}
 		// change track
 		else if (parseInt(name)) {
-			m["memory current"]["number"] = parseInt(name);
+			current["number"] = parseInt(name);
+			m["link play"]();
 		}
 		// next track
 		else if ("n" === name) {
-			m["memory current"]["number"]++;
+			current["number"]++;
+			m["link play"]();
 		}
 		// previous track
 		else if ("p" === name) {
-			m["memory current"]["number"]--;
+			current["number"]--;
+			m["link play"]();
 		}
 		// volume
 		else if ("v" === name) {
 			var vol = parseInt(argString);
 
-			if (NaN !== vol && (0 <= vol) && (100 >= vol)) {
+			if (NaN !== vol && (0 <= vol) && (9 >= vol)) {
 				m["option audio volume"] = vol;
 				m["audio"]({"command": "pause"});
 				m["audio"]({"command": "play"});
 			}
-
-			isJustClear = true;
 		}
 		// show listened links
 		else if ("l" === name) {
@@ -320,41 +381,12 @@
 			}
 			
 			m["green"]("Links:\n\n" + stringJson + "\n\n");
-			isJustClear = true;
 		}
 		else {
-			m["red"]("bad command");		
-			m["clear input"]();
+			m["red"]("bad command");
 		}
 
-		m["event"]("command", [name, argString]);
-		m["link play"](isJustClear);
-	};
-
-	m["link play"] = function(isJustClear) {
-		if (true === isJustClear) {
-			m["green"]();
-		}
-		else {
-			var last = m["in history"]("push");
-
-			if (last["source"]) {
-				var info = {
-					"Date" : last["date"].toLocaleString()
-					,"Latin" : last["latin"]
-					,"Link" : last["link"]
-					,"Number" : (1 < last["number"]) ? last["number"] : undefined
-				}
-
-				m["green"](JSON.stringify(info));
-				m["audio"]({"src": last["source"], "command": "play"});
-			}
-			else {
-				m["red"]("Not played");
-			}
-		}
-
-		m["event"]("play link");
+		m["event"]("stop command", arguments);
 		m["clear input"]();
 	};
 
@@ -367,11 +399,15 @@
 		obj["morse"] = "";
 		obj["latin"] = "";
 
+		if (paramString && m["memory current"]) {
+			obj = m["memory current"];
+		}
+
 		if (("current" === paramString) || ("push" === paramString)) {
-			obj = m["memory current"] = $.extend(obj, m["memory current"]);
+			$.extend(obj, m["memory current"]);
 		}
 		else if ("last" === paramString) {
-			obj = $.extend(obj, m["memory history"].slice(-1)[0]);
+			$.extend(obj, m["memory history"].slice(-1)[0]);
 		}
 
 		if (obj["morse"].length > m["morse"](obj["latin"], false).length) {
@@ -430,66 +466,26 @@
 		return links;
 	};
 
-	m["search link in soundcloud and play"] = function(request) {
-		var param = {
-			"url": "https://api.soundcloud.com/tracks/"
-			,"type": "GET"
-			,"timeout": 5000
-			,"dataType": "json"
-			,"data" : {
-				"q": request
-				,"client_id": m["option soundcloud client id"]
-				,"format": "json"
-				,"streamable": true
-				,"filter": "streamable"
-				,"order": "hotness" // "hotness", "created_at"
-				,"limit": 100
-			}
-		};
-
-		$.ajax(param)
-			.done(
-				function(traks) {
-					var current = m["in history"]("current");
-					
-					traks = ("string" === typeof traks) ? $.parseJSON(traks) : traks;
-
-					if (traks.length) {
-						for (var i = 0; i < traks.length; i++) {
-							if (!traks[i].stream_url) {
-								continue;
-							}
-
-							traks[i].stream_url += "?client_id=" + param["data"]["client_id"];
-							current["links"].push(traks[i].stream_url);
-							current["soundcloud traks"].push(traks[i]);
-						}
-					}
-					else if (traks.errors) {
-						m["red"]("soundcloud problem - " + traks.errors[0].error_message);
-					}
-				}
-			)
-			.fail(
-				function() {
-					m["red"]("can't find link - " + request);
-				}
-			)
-			.always(m["link play"]);
-	};
-
-	m["search"] = function(request) {
+	m["search"] = function(request, delay) {
 		var current = m["in history"]("current");
 
-		m["keyup"](true);
 		request = current["latin"] = (request || current["latin"]);
+		clearTimeout(m["search"]["delay"]);
+		m["keyup"](true);
 
 		if (!request) {
-			m["link play"](true);
+			m["clear input"]();
 
 			return;
 		}
 
+		if (delay) {
+			return m["search"]["delay"] = setTimeout(function() {
+				m["search"](request)
+			}, parseInt(delay) || m["duration"]()["stop function"]);
+		}
+
+		m["event"]("start search");
 		m["keydown"]["wait"] = true;
 
 		var match = request.match(/^e$|^e\s+(\S*)(\s*)(.*)$/i);
@@ -523,6 +519,82 @@
 		m["link play"]();
 	};
 
+	m["search link in soundcloud and play"] = function(request) {
+		var param = {
+			"url": "https://api.soundcloud.com/tracks/"
+			,"type": "GET"
+			,"timeout": 5000
+			,"dataType": "json"
+			,"data" : {
+				"q": request
+				,"client_id": m["option soundcloud client id"]
+				,"format": "json"
+				,"streamable": true
+				,"filter": "streamable"
+				,"order": "hotness" // "hotness", "created_at"
+				,"limit": 100
+			}
+		};
+
+		// series connection
+		if ("function" === typeof (m["search link in soundcloud and play"]["jqXHR"] || {}).abort) {
+			m["search link in soundcloud and play"]["jqXHR"].abort();
+		}
+		// 
+
+		m["search link in soundcloud and play"]["jqXHR"] = $.ajax(param)
+			.done(
+				function(traks) {
+					var current = m["in history"]("current");
+					
+					traks = ("string" === typeof traks) ? $.parseJSON(traks) : traks;
+
+					if (traks.length) {
+						for (var i = 0; i < traks.length; i++) {
+							if (!traks[i].stream_url) {
+								continue;
+							}
+
+							traks[i].stream_url += "?client_id=" + param["data"]["client_id"];
+							current["links"].push(traks[i].stream_url);
+							current["soundcloud traks"].push(traks[i]);
+						}
+					}
+					else if (traks.errors) {
+						m["red"]("soundcloud problem - " + traks.errors[0].error_message);
+					}
+				}
+			)
+			.fail(
+				function() {
+					m["red"]("Can't find link - " + request);
+				}
+			)
+			.always(m["link play"]);
+	};
+
+	m["link play"] = function() {
+		var last = m["in history"]("push");
+
+		if (last["source"]) {
+			var info = {
+				"Date" : last["date"].toLocaleString()
+				,"Latin" : last["latin"]
+				,"Link" : last["link"]
+				,"Number" : last["number"]
+			}
+
+			m["green"](JSON.stringify(info));
+			m["audio"]({"src": last["source"], "command": "play"});
+		}
+		else {
+			m["red"]("Not played");
+			m["event"]("not playing");
+		}
+
+		m["clear input"]();
+	};
+
 	m["links"] = function() {
 		var links = [];
 
@@ -543,11 +615,16 @@
 
 	m["clear input"] = function() {
 		m["keyup"](true);
+		
 		m["memory current"] = m["in history"]();
+		m["memory is noob mode"] = false;
+		
 		m["keyup"]["morse code"] = "";
-		m["keydown"]["downtime"] = undefined;
 		m["keydown"]["wait"] = false;
-	};	
+		m["keydown"]["downtime"] = undefined;
+
+		m["event"]("clear input");
+	};
 
 	m["library escape regexp string"] = function(string) {
 		return string.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
@@ -568,7 +645,7 @@
 		param = $.extend({
 			"src": ""
 			,"object": m["audio"]["object"]
-			,"volume": m["option audio volume"] //from 0 to 100
+			,"volume": m["option audio volume"] //from 0 to 9
 			,"command": "pause" // "play"
 		}, param);
 
@@ -602,8 +679,9 @@
 		}
 
 		param["object"].pause();
+		m["event"]("not playing");
 		param["object"].paused = true;
-		param["object"].volume = param["volume"] / 100;
+		param["object"].volume = ((5 < param["volume"]) ? ++param["volume"] : param["volume"]) / 10;
 
 		if (param["src"]) {
 			param["object"].src = param["src"];
@@ -613,6 +691,7 @@
 		if (param["object"].src && ("play" === param["command"])) {
 			param["object"].paused = false;
 			param["object"].play();
+			m["event"]("playing");
 		}
 
 		return param["object"];
@@ -673,7 +752,9 @@
 	};
 
 	m["green"] = function() {
-		m["console"](console.log, arguments, " :-)");
+		var promt = m["memory is noob mode"] ? " (noob mode) :D" : " :-)";
+
+		m["console"](console.log, arguments, promt);
 		m["tick"]({"timeout": 50, "frequency": 1046.50})
 	};
 
@@ -684,6 +765,7 @@
 		return null;
 	};
 
+	m["memory is noob mode"] = false;
 	m["memory history"] = [];
 	m["memory current"] = m["in history"]();
 
@@ -699,6 +781,10 @@
 		"|     and in soundcloud (https://soundcloud.com/). Script can |" + "\n" +
 		"|     used in your own application to obtain Morse code power.|" + "\n" +
 		"|                                                             |" + "\n" +
+		"|GET STARTED                                                  |" + "\n" + 
+		"|     Click in series any alphanumeric key on keyboard        |" + "\n" +
+		"|     to search by Morse code or type request in 'noob' mode. |" + "\n" +
+		"|                                                             |" + "\n" +
 		"|     Usage type:                                             |" + "\n" +
 		"|          1) In browser, by include script 'morsetick.js'.   |" + "\n" + 
 		"|                                                             |" + "\n" + 
@@ -708,19 +794,15 @@
 		"|               * NodeJs (http://nodejs.org/)                 |" + "\n" + 
 		"|               * SoX (http://sox.sourceforge.net/)           |" + "\n" + 
 		"|                                                             |" + "\n" +
-		"|GET STARTED                                                  |" + "\n" + 
-		"|     Click in series default shortcut Control+M              |" + "\n" +
-		"|     to search by Morse code                                 |" + "\n" +
-		"|                                                             |" + "\n" +
 		"|COMMANDS                                                     |" + "\n" +
 		"|     e - toggle play & pause                                 |" + "\n" +
 		"|     e n - Next track                                        |" + "\n" +
 		"|     e p - Previous track                                    |" + "\n" +
-		"|     e (number) - change track number                        |" + "\n" +
-		"|     e v - set Volume (from 0 to 100)                        |" + "\n" +
-		"|     e h - show this Help                                    |" + "\n" + 
+		"|     e (number) - change track number (from 1 to 100)        |" + "\n" +
+		"|     e v - set Volume (from 0 to 9)                          |" + "\n" +
 		"|     e l - show listened Links                               |" + "\n" +
 		"|     e e (text) - search with 'e ' at start                  |" + "\n" + 
+		"|     e h - show this Help                                    |" + "\n" + 
 		"|                                                             |" + "\n" + 
 		"|COPYRIGHT                                                    |" + "\n" + 
 		"|     License - http://unlicense.org/UNLICENSE                |" + "\n" + 
