@@ -1,9 +1,10 @@
-var whatRequire = "This program requires installed SoX programs - http://sox.sourceforge.net/";
-var option = {};
+console.log("(Loading)");
 
-option["key repeat speed"] = 250;
+var option = {
+	"key repeat speed":  250
+};
 
-console.log("Loading...");
+var whatRequire = "This program is require install SoX command line utility - http://sox.sourceforge.net/";
 
 var jsdom = require('jsdom');
 var request = require('request');
@@ -13,15 +14,8 @@ var fs = require('fs');
 var spawn = require('child_process').spawn;
 var querystring = require('querystring');
 
-var isNoobMode = false;
 var htmlDocument = fs.readFileSync(__dirname + "/index.html").toString();
 var scriptDocument = fs.readFileSync(__dirname + "/morsetick.js").toString();
-var stringInputLatin = "";
-var tickSpawnedProcess;
-var audioSpawnedProcess;
-var timeoutTickStartDelay;
-var timeoutAudioStartDelay;
-var bufferSynthPi = new Buffer(0);
 
 function similarJQueryAjax(param, callback) {
 	var paramSend = {
@@ -64,6 +58,7 @@ function similarJQueryAjax(param, callback) {
 		req.done(data, encoding, req);
 		req.always();
 	});
+
 	req.on("error", function(error) {
 		req.fail(error);
 		req.always();
@@ -105,23 +100,25 @@ function similarHTML5Audio() {
 	};
 
 	var createStream = function() {
-		var volume = (0.3 < that.volume) ? that.volume - 0.3 : that.volume;
+		var volume = (that.volume * 0.3).toPrecision(2);
 		var params = ["-G","-t","mp3", "-v", volume, "-", "-d", "trim", that.duration];
-		audioSpawnedProcess = spawn("sox", params);
-		audioSpawnedProcess.stderr.on("data", dataListener);
+		
+		deleteStream();
+		m["audio"]["process"] = spawn("sox", params);
+		m["audio"]["process"].stderr.on("data", dataListener);
 
-		return audioSpawnedProcess;
+		return m["audio"]["process"];
 	};
 
 	var deleteStream = function() {
 		clearTimeout(timeoutForNextSong);
 
-		if (audioSpawnedProcess) {
-			audioSpawnedProcess.stderr.removeListener("data", dataListener);
-			audioSpawnedProcess.kill("SIGHUP"); // "SIGHUP", "SIGSTOP"
+		if (m["audio"]["process"]) {
+			m["audio"]["process"].stderr.removeListener("data", dataListener);
+			m["audio"]["process"].kill("SIGHUP"); // "SIGHUP", "SIGSTOP"
 		}
 
-		audioSpawnedProcess = undefined;
+		m["audio"]["process"] = undefined;
 	};
 
 	this.src = "";
@@ -144,11 +141,9 @@ function similarHTML5Audio() {
 	};
 
 	this.play = function() {
-		deleteStream();
-		
 		if (dataBuffer.length && dataSrc && (dataSrc === that.src)) {
 			createStream();
-			audioSpawnedProcess.stdin.write(dataBuffer);
+			m["audio"]["process"].stdin.write(dataBuffer);
 			
 			return;
 		}
@@ -164,7 +159,7 @@ function similarHTML5Audio() {
 			})
 			.on("data", function(data){
 				dataBuffer = Buffer.concat([dataBuffer, data]);
-				audioSpawnedProcess.stdin.write(data);
+				m["audio"]["process"].stdin.write(data);
 			})
 			.fail(function(){
 				m["red"]("Can't load file");
@@ -186,47 +181,26 @@ function startMorsetick() {
 
 			window.morsetick.$.ajax = similarJQueryAjax;
 			window.Audio = similarHTML5Audio;
-			window.console.log = console.log;
 			window.console.error = console.error;
+			window.console.log = function() {
+				process.stdout.cursorTo(0, 0);
+				process.stdout.clearScreenDown();
 
-			m["option dot duration"] = option["key repeat speed"] + 10;
+				console.log.apply(console, arguments);
+			}
+
+			m["option duration"]["dot"] = option["key repeat speed"] + 10;
 			m["option console log"] = true;
 
-			m["event"] = function(event) {
-				if (("keydown" === event) || ("keyup" === event)) {
-					var current = m["in history"]("current");
-
-					msg = m["option program name"] + " v" + m["option program version"] + " :D ";
-
-					if (!stringInputLatin) {
-						m["clear input"]();
-						current = m["in history"]("current");
-						isNoobMode = false;
-					}
-					else if (isNoobMode) {
-						current["latin"] = stringInputLatin;
-						current["morse"] = m["morse"](stringInputLatin);
-						msg += "(noob mode) ";
-					}
-
-					msg += JSON.stringify({
-						"Latin": current["latin"]
-						,"Morse": current["morse"]
-					}) + "\n";
-
-					process.stdout.moveCursor(0, -1);
-					process.stdout.clearLine();
-					process.stdout.write(msg);
-				}
-				else if ("play link" === event) {
-					stringInputLatin = "";
-					isNoobMode = false;
-				}
+			m["external event listener"] = function(eventName) {
+				// ?
 			};
 
-			var tickBuffers = {};
-
 			m["tick"] = function(param) {
+				m["tick"]["buffers"] = (m["tick"]["buffers"] || {});
+				m["tick"]["delay"];
+				m["tick"]["process"];
+
 				param = $.extend({
 					"timeout": 0 // in milliseconds
 					,"gain": (param && param["timeout"]) ? 0.2 : 0
@@ -234,20 +208,16 @@ function startMorsetick() {
 					,"frequency": 440
 				}, param);
 
-				if (tickSpawnedProcess) {
-					tickSpawnedProcess.kill("SIGHUP"); // "SIGHUP", "SIGSTOP"
-					tickSpawnedProcess = undefined;
+				if (m["tick"]["process"]) {
+					m["tick"]["process"].kill("SIGHUP"); // "SIGHUP", "SIGSTOP"
+					m["tick"]["process"] = undefined;
 				}
+
+				clearTimeout(m["tick"]["delay"]);
 
 				if (!param || !param["timeout"]) {
 					return;
 				}
-
-				if (!tickSpawnedProcess) {
-					tickSpawnedProcess = spawn("sox", ["-t", "raw", "-r", "11025", "-b", "8", "-e", "unsigned-integer", "-", "-d"]);
-				}
-
-				// http://sox.sourceforge.net/sox.pdf
 
 				var duration = m["duration"]();
 				var t = param["timeout"] / 1000;
@@ -256,38 +226,43 @@ function startMorsetick() {
 				t = (t && (t < 0.2)) ? 0.2 : t;
 
 				var params = ["-G", "-n", 
-					"-t", "raw", "-r", "11025", "-b", "8", "-e", "unsigned-integer", "-",
+					"-t", "raw", "-r", "44100", "-b", "8", "-e", "unsigned-integer", "-",
 					"synth", t, "sine", param["frequency"] + "-440", 
 					"vol", param["gain"],
 					"fade", (t > d) ? d : t
 				];
 				var paramsAsString = params.join(" ");
 
-				if (!tickBuffers[paramsAsString]) {
-					var buf = tickBuffers[paramsAsString] = new Buffer(0);
+				if (!m["tick"]["buffers"][paramsAsString]) {
+					var buf = m["tick"]["buffers"][paramsAsString] = new Buffer(0);
 					var proc = spawn("sox", params);
 
 					proc.stderr
 						.on('data', function(data) {
 							m["red"]("m[\"tick\"] - ", data.toString());
 						});
+
 					proc.stdout
 						.on('data', function(data) {
 							buf = Buffer.concat([buf, data]);
 						})
 						.on('end', function() {
-							tickBuffers[paramsAsString] = buf;
+							m["tick"]["buffers"][paramsAsString] = buf;
 							m["tick"](param);
 						});
 
 					return;
 				}
-				else if (!tickBuffers[paramsAsString].length) {
+				else if (!m["tick"]["buffers"][paramsAsString].length) {
 					return;
 				}
 
-				tickSpawnedProcess.stdin.write(tickBuffers[paramsAsString]);
-			}
+				m["tick"]["delay"] = setTimeout(function() {
+					m["tick"]();
+					m["tick"]["process"] = spawn("sox", ["-t", "raw", "-r", "44100", "-b", "8", "-e", "unsigned-integer", "-", "-d"]);
+					m["tick"]["process"].stdin.write(m["tick"]["buffers"][paramsAsString]);
+				}, 100);
+			};
 
 			keypress(process.stdin);
 			process.stdin.setRawMode(true);
@@ -295,42 +270,38 @@ function startMorsetick() {
 			process.stdin.on('keypress', function (ch, key) {
 				if (key && (key.name == 'escape' || (key.ctrl && key.name == 'c'))) {
 					try {
-						m["clear input"]();
-						m["tick"]();
-						m["audio"]();
-
-						if (audioSpawnedProcess) {
-							audioSpawnedProcess.kill("SIGHUP"); // "SIGHUP", "SIGSTOP"
-						}
-
-						if (tickSpawnedProcess) {
-							tickSpawnedProcess.kill("SIGHUP"); // "SIGHUP", "SIGSTOP"
-						}
-
 						m["green"]("Bye-bye!");
+						m["off"]();
 					}
 					catch(e) {}
 
 					process.exit();
 				}
 
-				if (key && ("return" === key.name) && isNoobMode && !m["memory is waiting for link play"]) {
-					m["search"]();
+				var event = $.Event("keydown.morsetick");
 
-					return;
+				event.isHaveOnlyKeydownEvent = true;
+
+				if (key) {
+					event.ctrlKey = key.ctrl;
+					event.metaKey = key.meta;
+					event.shiftKey = key.shift;
+				}
+
+				if (key && ("return" === key.name)) {
+					event.which = 13;
 				}
 				else if (key && ("backspace" === key.name)) {
-					stringInputLatin = stringInputLatin.slice(0, -1);
+					event.which = 8;
 				}
-				else if (ch && !isNoobMode && stringInputLatin && (ch !== stringInputLatin.slice(-1))) {
-					isNoobMode = true;
-					stringInputLatin = stringInputLatin[0] + ch.toLowerCase();
+				else if (ch && (1 === ch.length)) {
+					event.character = ch.toLowerCase();
 				}
-				else if (ch) {
-					stringInputLatin += ch.toLowerCase();
+				else {
+					return;
 				}
 
-				m["keydown"](true);
+				$(window).trigger(event);
 			});
 		}
 	});

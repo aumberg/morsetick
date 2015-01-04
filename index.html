@@ -139,26 +139,24 @@
 					return;
 				}
 
-				m["keyup"](true);
-				m["keyup"]["timeout stop"] = setTimeout(function() {
-					m["search"](request);
-				}, 2000);
+				m["search"](request, true);
 			});
 
-			m["event"] = function(eventName) {
-				var current = m["in history"]("current");
-				var html = "";
+			m["external event listener"] = function(eventName) {
+				if (("keyup" === eventName) || ("not playing" === eventName)) {
+					var current = m["in history"]("current");
 
-				elementLatinText.val(current["latin"]);
-				elementMorseCode.val(current["morse"]);
-
-				if (current["links"].length && ("play link" === eventName) 
-				&& m["audio"]["object"] && !m["audio"]["object"].paused) {
-					html = current["number"] + " <a href='" + current["link"] 
-						+ "' target='_blank'>link</a> of " + current["links"].length + " is playing.";
+					elementLatinText.val(current["latin"]);
+					elementMorseCode.val(current["morse"]);
+					elementFound.html("");
 				}
+				else if ("playing" === eventName) {
+					var current = m["in history"]("current");
+					var html = current["number"] + " <a href='" + current["link"] 
+						+ "' target='_blank'>link</a> of " + current["links"].length + " is playing.";
 
-				elementFound.text("").html(html);
+					elementFound.html(html);
+				}
 			};
 		})
 	</script>
@@ -188,10 +186,15 @@
 		<button id="b_prev">Prev</button><button id="b_next">Next</button><button id="b_play_toggle">Play/Pause</button>
 		volume:
 		<select id="volume">
-			<option>100</option>
-			<option selected="selected">75</option>
-			<option>50</option>
-			<option>25</option>
+			<option>9</option>
+			<option>8</option>
+			<option selected="selected">7</option>
+			<option>6</option>
+			<option>5</option>
+			<option>4</option>
+			<option>3</option>
+			<option>2</option>
+			<option>1</option>
 			<option>0</option>
 		</select>
 		<div id="found" class="morsetickThereNoLinks"></div>
@@ -212,7 +215,9 @@
 
 		<ol class="description">
 			<li>
-				Ok, just press <b>Control+M </b> keys, or click on page. Click in series to type some text in Morse code, for example 
+				Ok, just click in series any alphanumeric key on keyboard to find audio links in this page before search music in soundcloud.
+				<br>
+				Let's find those links for tune your guitar:
 				<a href="http://www.html5guitartuner.com/notes/06-guitar-high-e-string.mp3" target="_blank">high e</a>
 				, <a href="http://www.html5guitartuner.com/notes/05-guitar-b-string.mp3" target="_blank">b</a>
 				, <a href="http://www.html5guitartuner.com/notes/04-guitar-g-string.mp3" target="_blank">g</a>
@@ -221,11 +226,11 @@
 				, <a href="http://www.html5guitartuner.com/notes/01-guitar-low-e-string.mp3" target="_blank">low e</a>
 			</li>
 			<li>
-				Drag and drop
+				Drag and drop link 
 				<a class="option_program_bookmark" href="javascript:(function(){var script=document.createElement('script');script.src='https://aumberg.github.io/morsetick/morsetick.js';document.body.appendChild(script);}())">
 					MorseTick
 				</a>
-				link to bookmarks bar, or download
+				to bookmarks bar, or download
 				<a href="https://github.com/aumberg/morsetick">
 					project
 				</a>
