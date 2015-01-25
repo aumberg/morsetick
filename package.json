@@ -12,6 +12,7 @@
 		"url": "https://github.com/aumberg"
 	},
 	"dependencies": {
+		"wav": "*",
 		"jsdom": "*",
 		"request": "*",
 		"keypress": "*"
