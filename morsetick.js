@@ -20,6 +20,7 @@
 	m["option program version"] = "0.1";
 
 	m["option console log"] = false;
+	m["option links limit"] = 100;
 	m["option audio volume"] = 7;
 	m["option dot duration"] = 100; // slightly higher than "Key repeating delay" of your system value
 	m["option play next track"] = true;
@@ -153,16 +154,16 @@
 
 		m["keyup"]["timeout character"] = setTimeout(function() {
 			m["keyup"]["morse code"] += " ";
-			m["event"]("character");
+			m["event"]("keyup character");
 		}, duration["character space"]);
 
 		m["keyup"]["timeout word"] = setTimeout(function() {
 			m["keyup"]["morse code"] += "  ";
-			m["event"]("word");
+			m["event"]("keyup word");
 		}, duration["word space"]);
 
 		m["keyup"]["timeout stop"] = setTimeout(function() {
-			m["event"]("stop");
+			m["event"]("keyup stop input");
 		}, duration["stop function"]);
 	};
 
@@ -188,93 +189,101 @@
 			// 		m["tick"]["oscillator"].frequency.value = event.clientX + 300;
 			// 	}
 			// })
-			.on("keydown.morsetick mousedown.morsetick touchstart.morsetick", function(event) {
-				var nextEvent = "keyup.morsetick";
-				var isKeydown = ("keydown" === event.type);
-				var isShortcut = (event.ctrlKey || event.metaKey);
-				var isHaveOnlyKeydownEvent = (event.isHaveOnlyKeydownEvent || false);
-				var character = (event.character || String.fromCharCode(event.which)).toLowerCase();
+			.on("focus.morsetick", function(event) {
+				m["tick"]({"timeout": 30, "frequency": 329.63});
+			});
 
-				if (isShortcut
-				|| m["keydown"]["wait"]
-				|| $(event.target).is("textarea, input")
-				|| (!isKeydown && $(event.target).is("a, button, select"))) {
+		$("body")
+			.on("mousedown.morsetick touchstart.morsetick", function(event) {
+				var nextEvent = "mouseup.morsetick";
+
+				if (m["keydown"]["wait"] || $(event.target).is("textarea, input, a, button, select")) {
 					return;
 				}
 
-				if (!isKeydown && m["memory is noob mode"]) {
+				if (m["memory is noob mode"]) {
 					m["memory is noob mode"] = false;
 					m["keyup"]["morse code"] += "   ";
 				}
 
-				if (isKeydown) {
-					var isLetter = (!!(event.character || "").match(/^\S$/) || !!character.match(/^\w$/));
-					var isSpace = !!character.match(/\s/);
-					var isEnter = (13 === event.which);
-					var isBackspace = (8 === event.which);
-					var isUnknown = (!isLetter && !isSpace && !isEnter && !isBackspace)
-					var current = m["in history"]("current");
-
-					m["keyup"](true);
-					$(this).off(nextEvent);
-					lastCharacter = current["latin"] ? lastCharacter : "";
-
-					if (isUnknown || (!current["latin"] && (isSpace || isEnter))) {
-						return;
-					}
-
-					event.preventDefault();
-
-					if (isBackspace && (2 > current["latin"].length)) {
-						character = "";
-						m["clear input"]();
-						current = m["in history"]("current");
-					}
-					else if (isBackspace && current["latin"]) {
-						character = "";
-						current["latin"] = current["latin"].slice(0, -1);
-					}
-					else if (isEnter && current["latin"]) {
-						return m["search"]();
-					}
-					else if (lastCharacter && current["latin"] && !m["memory is noob mode"] && (lastCharacter !== character)) {
-						m["memory is noob mode"] = true;
-						current["latin"] = current["latin"].slice(0, -1) + lastCharacter + character;
-					}
-					else if ((isLetter || isSpace) && m["memory is noob mode"]) {
-						current["latin"] += character;
-					}
-
-					lastCharacter = character;
-					current["morse"] = m["morse"](current["latin"], false);
-
-					if (m["memory is noob mode"]) {
-						m["keyup"]["morse code"] = current["morse"];
-						m["event"]("keyup");
-						m["search"](current["latin"], true);
-
-						return;
-					}
-					else if (isBackspace) {
-						if (current["morse"]) {
-							m["keyup"]["morse code"] = current["morse"] + " ";
-						}
-
-						m["event"]("keyup");
-
-						return;
-					}
-				}
-				else if ("touchstart" === event.type) {
+				if ("touchstart" === event.type) {
 					nextEvent = "touchend.morsetick";
 					$(this).off("mousedown.morsetick");
 				}
-				else if ("mousedown" === event.type) {
-					nextEvent = "mouseup.morsetick";
+
+				m["input"]();
+				m["keydown"]();
+				$(this).off(nextEvent).one(nextEvent, m["keyup"]);
+			})
+			.on("keydown.morsetick", function(event) {
+				var isShortcut = (event.ctrlKey || event.metaKey);
+
+				if (isShortcut || m["keydown"]["wait"] || $(event.target).is("textarea, input")) {
+					return;
+				}
+
+				var character = (event.character || String.fromCharCode(event.which)).toLowerCase();
+				var isLetter = (!!(event.character || "").match(/^\S$/) || !!character.match(/^\w$/));
+				var isEnter = (13 === event.which);
+				var isSpace = !!character.match(/\s/);
+				var isBackspace = (8 === event.which);
+				var isUnknown = (!isLetter && !isSpace && !isEnter && !isBackspace)
+				var isHaveOnlyKeydownEvent = (event.isHaveOnlyKeydownEvent || false);
+				var current = m["in history"]("current");
+
+				m["input"]();
+				m["keyup"](true);
+				$(this).off("keyup.morsetick");
+				lastCharacter = current["latin"] ? lastCharacter : "";
+
+				if (isUnknown || (!current["latin"] && (isSpace || isEnter))) {
+					return;
+				}
+
+				event.preventDefault();
+
+				if (isBackspace && (2 > current["latin"].length)) {
+					character = "";
+					m["clear input"]();
+					current = m["in history"]("current");
+				}
+				else if (isBackspace && current["latin"]) {
+					character = "";
+					current["latin"] = current["latin"].slice(0, -1);
+				}
+				else if (isEnter && current["latin"]) {
+					return m["input"](current["latin"]);
+				}
+				else if (lastCharacter && current["latin"] && !m["memory is noob mode"] && (lastCharacter !== character)) {
+					m["memory is noob mode"] = true;
+					current["latin"] = current["latin"].slice(0, -1) + lastCharacter + character;
+				}
+				else if ((isLetter || isSpace) && m["memory is noob mode"]) {
+					current["latin"] += character;
+				}
+
+				lastCharacter = character;
+				current["morse"] = m["morse"](current["latin"], false);
+
+				if (m["memory is noob mode"]) {
+					m["keyup"]["morse code"] = current["morse"];
+					m["event"]("keyup");
+					m["input"](current["latin"], true);
+
+					return;
+				}
+				else if (isBackspace) {
+					if (current["morse"]) {
+						m["keyup"]["morse code"] = current["morse"] + " ";
+					}
+
+					m["event"]("keyup");
+
+					return;
 				}
 
 				m["keydown"](isHaveOnlyKeydownEvent);
-				$(this).off(nextEvent).one(nextEvent, m["keyup"]);
+				$(this).one("keyup.morsetick", m["keyup"]);
 			});
 	});
 
@@ -300,7 +309,7 @@
 			m["green"](msg);
 			// m["tick"]();
 		}
-		else if ("character" === eventName) {
+		else if ("keyup character" === eventName) {
 			if ("?" === current["latin"].slice(-1)) {
 				m["keydown"]["wait"] = true;
 				m["keyup"](true);
@@ -313,13 +322,14 @@
 
 		m["external event listener"].apply(this, arguments);
 
-		if ("stop" === eventName) {
-			m["search"]();
+		if ("keyup stop input" === eventName) {
+			m["input"](current["latin"]);
 		}
 	};
 
 	m["command"] = function(name, argString) {
 		var current = m["memory current"] = m["in history"]("last");
+		argString = (argString || "");
 
 		m["event"]("start command", arguments);
 		
@@ -394,8 +404,9 @@
 		var obj = {};
 		obj["date"] = new Date();
 		obj["number"] = 1;
-		obj["soundcloud traks"] = [];
 		obj["links"] = [];
+		obj["link"] = "";
+		obj["source"] = "";
 		obj["morse"] = "";
 		obj["latin"] = "";
 
@@ -417,9 +428,10 @@
 			obj["morse"] = m["morse"](obj["latin"], false);
 		}
 		
-		obj["permalink_url"] = (obj["soundcloud traks"][obj["number"] - 1] || [])["permalink_url"];
-		obj["source"] = (obj["links"][obj["number"] - 1] || "");
-		obj["link"] = (obj["permalink_url"] || obj["source"]);
+		var link = (obj["links"][obj["number"] - 1] || []);
+
+		obj["link"] = (link["permalink_url"] || link["source"] || obj["link"]);
+		obj["source"] = (link["source"] || obj["source"]);
 		
 		if (obj["link"] && ("push" === paramString)) {
 			m["memory history"].push(obj);
@@ -428,68 +440,23 @@
 		return obj;
 	};
 
-	m["find links"] = function(string, request) {
-		request = (request || "");
-
-		var exp = "[^\\n<>\"']*";
-		var left = "(^|[^\"'\\s])(/|[A-z]+\\://)";
-		var right = "($|[^\"'\\s])";
-		var linkExp = new RegExp(left + exp + right, "img");
-		var escaped = "\\b" + m["library escape regexp string"](request) + "\\b";
-		// var hrefExp = "<a[^>]*href=[\"'][^>]+[\"'][^>]*>([^<]*" + escaped2 + "[^<]*)<";
-		var htmlExp = "<[^>]*>[^<]*\\b" + escaped + "\\b[^<]*";
-		var req = [new RegExp(htmlExp, "img")]
-		var links = [];
-		var html = [];
-
-		if (request) {
-			var htmlExp2 = new RegExp(htmlExp.replace(/\\ /g, "\\b" + exp + "\\b"), "img");
-
-			req.push(htmlExp2);
-		}
-
-		for (var i in req) {
-			html = html.concat(string.match(req[i]) || []);
-
-			if (html.length) {
-				break;
-			}
-		}
-
-		for (var i in html) {
-			links = links.concat(html[i].match(linkExp) || []);
-		}
-
-		// m["green"](request, links);
-		// m["green"](match, links, oou);
-
-		return links;
-	};
-
-	m["search"] = function(request, delay) {
-		var current = m["in history"]("current");
-
-		request = current["latin"] = (request || current["latin"]);
-		clearTimeout(m["search"]["delay"]);
-		m["keyup"](true);
+	m["input"] = function(request, delay) {
+		clearTimeout(m["input"]["delay"]);
 
 		if (!request) {
-			m["clear input"]();
-
 			return;
 		}
 
 		if (delay) {
-			return m["search"]["delay"] = setTimeout(function() {
-				m["search"](request)
+			return m["input"]["delay"] = setTimeout(function() {
+				m["input"](request)
 			}, parseInt(delay) || m["duration"]()["stop function"]);
 		}
 
+		var match = request.match(/^e$|^e\s+(\S*)(\s*)(.*)$/i);
+
 		m["event"]("start search");
 		m["keydown"]["wait"] = true;
-
-		var match = request.match(/^e$|^e\s+(\S*)(\s*)(.*)$/i);
-		var html = "";
 
 		if (match) {
 			if ("e" !== match[1]) {
@@ -497,29 +464,37 @@
 
 				return;
 			}
-			// search with 'e ' at start
-			request = match.slice(1).join("");
-			//
+
+			request = match.slice(1).join(""); // search with 'e ' at start
 		}
 
-		$(":visible:not(:text):not(.morsetickThereNoLinks *)").each(function() {
-			html += "\n" + m["self element clone"](this)[0].outerHTML;
-		});
-
-		current["links"] = m["find links"](html, request);
-
-		if (!current["links"].length && m["option soundcloud client id"]) {
-			// link =  link.replace(/&amp;/g, "&");
-			// element.attr("tabindex", (element.attr("tabindex") || "0")).focus();
-			m["search link in soundcloud and play"](request);
-
-			return;
-		}
-
-		m["link play"]();
+		m["search links in html"](request);
+		m["search links in soundcloud and play"](request);
 	};
 
-	m["search link in soundcloud and play"] = function(request) {
+	m["search links in html"] = function(request) {
+		request = $.trim(request).replace(/\s+/mg, " ");
+
+		var current = m["in history"]("current");
+		var escaped = m["library escape regexp string"](request).replace(/\\ /g, "\\s+");
+		var regexpRequest = new RegExp("\\b" + escaped + "\\b", "img");
+
+		$("a[href]:visible").each(function() {
+			if (current["links"].length > m["option links limit"]) {
+				return false;
+			}
+
+			if ($(this).text().match(regexpRequest)) {
+				current["links"].push({
+					"source":$(this).attr("href")
+				});
+			}
+		});
+
+		return current["links"];
+	};
+
+	m["search links in soundcloud and play"] = function(request) {
 		var param = {
 			"url": "https://api.soundcloud.com/tracks/"
 			,"type": "GET"
@@ -532,32 +507,31 @@
 				,"streamable": true
 				,"filter": "streamable"
 				,"order": "hotness" // "hotness", "created_at"
-				,"limit": 100
+				,"limit": m["option links limit"]
 			}
 		};
 
 		// series connection
-		if ("function" === typeof (m["search link in soundcloud and play"]["jqXHR"] || {}).abort) {
-			m["search link in soundcloud and play"]["jqXHR"].abort();
+		if ("function" === typeof (m["search links in soundcloud and play"]["jqXHR"] || {}).abort) {
+			m["search links in soundcloud and play"]["jqXHR"].abort();
 		}
 		// 
 
-		m["search link in soundcloud and play"]["jqXHR"] = $.ajax(param)
+		m["search links in soundcloud and play"]["jqXHR"] = $.ajax(param)
 			.done(
 				function(traks) {
-					var current = m["in history"]("current");
-					
-					traks = ("string" === typeof traks) ? $.parseJSON(traks) : traks;
+					var traks = ("string" === typeof traks) ? $.parseJSON(traks) : traks;
 
 					if (traks.length) {
-						for (var i = 0; i < traks.length; i++) {
+						var current = m["in history"]("current");
+
+						for (var i = 0; (i < traks.length) && (m["option links limit"] >= current["links"].length); i++) {
 							if (!traks[i].stream_url) {
 								continue;
 							}
 
-							traks[i].stream_url += "?client_id=" + param["data"]["client_id"];
-							current["links"].push(traks[i].stream_url);
-							current["soundcloud traks"].push(traks[i]);
+							traks[i]["source"] = traks[i]["stream_url"] + "?client_id=" + param["data"]["client_id"];
+							current["links"].push(traks[i]);
 						}
 					}
 					else if (traks.errors) {
@@ -586,6 +560,7 @@
 
 			m["green"](JSON.stringify(info));
 			m["audio"]({"src": last["source"], "command": "play"});
+			m["event"]("link play");
 		}
 		else {
 			m["red"]("Not played");
@@ -604,7 +579,7 @@
 				"Date" : h["date"]
 				,"Latin" : h["latin"]
 				,"Number" : h["number"]
-				,"Link" : (h["permalink_url"] || h["source"])
+				,"Link" : h["link"]
 			};
 
 			links.push(link);
@@ -624,21 +599,6 @@
 		m["keydown"]["downtime"] = undefined;
 
 		m["event"]("clear input");
-	};
-
-	m["library escape regexp string"] = function(string) {
-		return string.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
-	};
-
-	m["self element clone"] = function(element) {
-		var clone 	= $(element).clone();
-		clone.children().remove();
-
-		return clone;
-	};
-
-	m["self value"] = function(element) {
-		return (element.val() || m["self element clone"](element).text());
 	};
 
 	m["audio"] = function(param) {
@@ -697,10 +657,9 @@
 		return param["object"];
 	};
 
+	// http://www.javascripture.com/OscillatorNode
+	// http://modernweb.com/2014/03/31/creating-sound-with-the-web-audio-api-and-oscillators/
 	m["tick"] = function(param) {
-		// http://www.javascripture.com/OscillatorNode
-		// http://modernweb.com/2014/03/31/creating-sound-with-the-web-audio-api-and-oscillators/
-
 		param = $.extend({
 			"timeout": 0 // in milliseconds
 			,"gain": (param && param["timeout"]) ? 0.1 : 0
@@ -760,9 +719,13 @@
 
 	m["red"] = function() {
 		m["console"](console.error || console.log, arguments, " :'( Ops!");
-		m["tick"]({"timeout": 50, "frequency": 2093});
+		m["tick"]({"timeout": 50, "frequency": 1500});
 
 		return null;
+	};
+
+	m["library escape regexp string"] = function(string) {
+		return string.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
 	};
 
 	m["memory is noob mode"] = false;
