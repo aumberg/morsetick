@@ -1,6 +1,7 @@
 # [MorseTick](http://aumberg.github.io/morsetick/)
-
-```                                                          
+#####Осторожна, счаз программ на стадия вечного девеолпаЖ, [ну ладно.](https://soundcloud.com/chetvert/chetvert-nu-ladno)
+---
+```
  _____________________________________________________________ 
 |                                                             |
 |NAME                                                         |
@@ -20,10 +21,12 @@
 |          1) In browser, by include script 'morsetick.js'.   |
 |                                                             |
 |          2) From system console. Support search local music.|
-|          Сan work in Raspberry PI (http://raspberrypi.org/).|
-|          Requires installed:                                |
-|               * NodeJs (http://nodejs.org/)                 |
-|               * SoX (http://sox.sourceforge.net/)           |
+|          Сan work on Raspberry PI (http://raspberrypi.org/).|
+|                                                             |
+|          Run in console:                                    |
+|               * sudo apt-get install nodejs npm             |
+|               * npm install                                 |
+|               * node index.js | aplay -f cd -q              |
 |                                                             |
 |COMMANDS                                                     |
 |     e - toggle play & pause                                 |
@@ -60,10 +63,28 @@
 | 6 -....      7 --...      8 ---..      9 ----.      0 ----- |
 |_____________________________________________________________|
 ```
-
-### [Try on GitHub pages!](http://aumberg.github.io/morsetick/)
 ---
-If you know how optimise use [SoX](http://sox.sourceforge.net/)
-utility, have solution for other single-board computers 
-(like [espruino](http://www.espruino.com/)), and want to take a
-part in this project, please email me on slovastick@mail.ru
+### [Try it on GitHub pages!](http://aumberg.github.io/morsetick/)
+
+Good links (English language):
+* Google Play Music Internet Radio - http://www.instructables.com/id/Google-Play-Music-Internet-Radio-Raspberry-Pi-and/
+* Internet Radio player made with a Raspberry Pi - http://www.instructables.com/id/Pandoras-Box-An-Internet-Radio-player-made-with/step2/Setting-up-the-Pi/
+* Volumio projects - https://volumio.org/amazing-diy-raspberry-pi-audio-player-volumio/
+* Creating sound waves with JavaScript - http://js.do/blog/sound-waves-with-javascript/
+* Arduino Sinewave Generator - http://www.electronics-diy.com/arduino-sinewave-generator.php
+* Johnny-five javascript framework  - https://github.com/rwaldron/johnny-five
+* Learn Morse codes (Morse Code Machine) - http://boyslife.org/games/online-games/575/morse-code-machine/
+
+Good links (Russian language):
+* РадиоКот :: Делаем mp3 плеер! - http://radiokot.ru/circuit/digital/game/37/
+* SD Card Wav плеер на ардуино - http://nuzhen-sovet.ru/content/sd-card-wav-pleer-na-arduino
+* Самодельный SD Card Shield для Arduino - http://habrahabr.ru/post/115176/
+* Распределенный музыкальный плейер на Raspberry Pi - http://habrahabr.ru/post/195458/
+* Дверной звонок на ATtiny45 - http://www.microcontrollerov.net/microcontrolleri/shemi/Dvernoj-zvonok-na-ATtiny45
+* Midi Player для AVR - http://www.deep-shadows.com/hax/wordpress/?page_id=1111
+* Генерация звука, пьезоизлучатель - http://robocraft.ru/blog/arduino/63.html
+* Cинтезатор на Arduino - http://robocraft.ru/blog/projects/3272.html
+* Aнатомия midi - http://www.midi.ru/doc/7.htm
+* Передача MIDI данных от Arduino в компьютер - http://cxem.net/arduino/arduino18.php
+* Формат звукового файла WAV - http://microsin.net/programming/PC/wav-format.html
+* Преобразование Фурье в действии - http://habrahabr.ru/post/247385/

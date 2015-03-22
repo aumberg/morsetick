@@ -1,17 +1,13 @@
-console.log("(Loading)");
+console.log = console.error; // write to stderr
+console.log("(Loading MorseTick)");
 
 var option = {
 	"key repeat speed":  250
-	,"tick sample rate": 4096
-	,"use VLC player": false //true, false
+	,"audio stdout format": "pcm" // "pcm", "wav", "mp3"
+	,"audio sample rate": 44100
+	,"audio bit depth": 16
+	,"audio channels": 2 //1 - mono, 2 - stereo
 };
-
-var whatRequire = "This program is require install SoX utility (http://sox.sourceforge.net/) or VLS player (http://www.videolan.org/)";
-
-var lastRequest;
-
-var processForPlayTick;
-var processForPlayAudio;
 
 var jsdom = require('jsdom');
 var request = require('request');
@@ -19,11 +15,151 @@ var keypress = require('keypress');
 
 var fs = require('fs');
 var wav = require('wav');
+var lame = require('lame');
 var querystring = require('querystring');
 var child_process = require('child_process');
 
+var lastRequest;
 var htmlDocument = fs.readFileSync(__dirname + "/index.html").toString();
 var scriptDocument = fs.readFileSync(__dirname + "/morsetick.js").toString();
+
+var audio2stdout = new (function() {
+	var self = this;
+
+	self.mp3Decoder = new lame.Decoder();
+	self.data = new Buffer(0);
+	self.dataMass = [];
+	self.onPlay = function() {};
+	self.volume = 1;
+	self.repeatTime = 50;
+	self.outputStream = process.stdout;
+
+	if (!option["audio stdout format"]) {
+		var Speaker = require('speaker');
+
+		self.outputStream = new Speaker({
+			"channels": option["audio channels"]          // 1 channel
+			,"bitDepth": option["audio bit depth"]         // 32-bit samples
+			,"sampleRate": option["audio sample rate"]     // 48,000 Hz sample rate
+			,"signed": true
+		});
+	}
+	else if ("wav" === option["audio stdout format"]) {
+		self.outputStream = new wav.Writer({
+			"channels": option["audio channels"]
+			,"sampleRate": option["audio sample rate"]
+			,"bitDepth": option["audio bit depth"]
+		});
+
+		self.outputStream.pipe(process.stdout);
+	}
+	else if ("mp3" === option["audio stdout format"]) {
+		self.outputStream = new lame.Encoder();
+		self.outputStream.pipe(process.stdout);
+	}
+
+	self.stop = function() {
+		var tmp = [];
+
+		if (lastRequest) {
+			lastRequest.abort();
+			lastRequest = undefined;
+		}
+
+		self.mp3Decoder.removeAllListeners("finish");
+		self.mp3Decoder.removeAllListeners("data");
+		self.mp3Decoder = new lame.Decoder();
+		self.onPlay = function() {};
+		self.data = new Buffer(0);
+		self.dataMass = [];
+
+		self.mp3Decoder.on("data", function(chunk) {
+			if (tmp) {
+				tmp.push(chunk);
+
+				if (100 === tmp.length) {
+					self.dataMass = tmp;
+					tmp = undefined;
+				}
+			}
+			else {
+				self.dataMass.push(chunk);
+			}
+		});
+
+		self.mp3Decoder.on("end", function(data) {
+			if (tmp) {
+				self.dataMass = tmp;
+				tmp = undefined;
+			}
+
+			// console.log("the finish!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+		});
+
+		// console.log("stop")
+	};
+
+	// http://www.sonicspot.com/guide/wavefiles.html
+	// http://microsin.net/programming/PC/wav-format.html
+	(function outputLoop(expectTime) {
+		var blockAlign = option["audio bit depth"] / 8 * option["audio channels"];
+		var averageBytesPerSecond = option["audio sample rate"] * blockAlign;
+		var currentTime = (new Date()).getTime();
+		var timeDiff = currentTime - expectTime;
+
+		expectTime = currentTime + self.repeatTime;
+
+		setTimeout(function() {
+			outputLoop(expectTime);
+		}, self.repeatTime);
+
+		if (!expectTime || (timeDiff > (self.repeatTime * 20))) {
+			timeDiff = self.repeatTime * 20;
+		}
+
+		bnum = Math.round((self.repeatTime + timeDiff) / 1000 * averageBytesPerSecond);
+
+		if (bnum % 2) {
+			bnum++;
+		}
+
+		while (self.dataMass.length && (bnum > self.data.length)) {
+			self.data = Buffer.concat([self.data, self.dataMass.shift()]);
+		}
+
+		if (!self.data.length) {
+			self.onPlay();
+
+			return;
+		}
+
+		var chunk = self.data.slice(0, bnum);
+
+		self.onPlay(chunk);
+
+		chunk = new Buffer(chunk, ("string" === typeof self.data) ? "binary" : undefined);
+
+		self.data = self.data.slice(bnum);
+
+		// console.log("currenttime", currentTime, "expecttime", expectTime)
+		// console.log("timeDiff",timeDiff, "repeatTime", self.repeatTime, "bnum", bnum, "chunk.length", chunk.length, self.dataMass.length)
+
+		// decrease volume, bad but faster than there - https://www.npmjs.com/package/pcm-volume
+		for (var i = 0; i < chunk.length; i += 2) {
+			var b1 = chunk[i];
+			var b2 = chunk[i+1] << 8;
+			var r = (chunk[i+1] < 128) ? (b1|b2) : (b1|b2) - 65536;
+
+			r = Math.round(r * self.volume);
+
+			chunk[i] = r & 255
+			chunk[i+1] = r >>> 8;	
+		}
+		// 
+
+		self.outputStream.write(chunk);
+	}());
+})
 
 function similarJQueryAjax(param, callback) {
 	param = (param || {});
@@ -84,65 +220,23 @@ function similarJQueryAjax(param, callback) {
 function similarHTML5Audio() {
 	var self = this;
 	var dataSrc = "";
-	var dataBuffer = new Buffer(0);
 	var regexpDuration = new RegExp(/% (\d\d):(\d\d):(\d\d)/);
 	var timeoutForNextSong;
-	var bucket = new Buffer(0);
 
 	var waitForChangeSong = function(intTimeout) {
-		// console.log("wait for change song")
 		clearTimeout(timeoutForNextSong);
 		timeoutForNextSong = setTimeout(function() {
-			// console.log("change!")
 			self.onend();
 		}, (intTimeout || 10000));
 	}
 
-	var dataListener = function(data) {
-		data = data.toString();
-
-		var match = data.match(regexpDuration);
-
-		if (match) {
-			var date = new Date();
-
-			date.setHours(match[1]);
-			date.setMinutes(match[2]);
-			date.setSeconds(match[3]);
-
-			self.duration = date.getSeconds();
-		}
-	};
-	
-	var audioProcess = function(command) {
-		if ("start" === command) {
-			audioProcess("stop");
-
-			var proc = processController({
-				"command": "start audio process"
-				,"parameters": {
-					"volume": (self.volume * 0.3).toPrecision(2)
-					,"start time": self.duration
-				}
-			});
-
-			proc.stderr.on("data", dataListener);
-			proc.stdin.write(dataBuffer);
-
-			return proc;
-		}
-		else if ("stop" === command) {
-			clearTimeout(timeoutForNextSong);
-
-			processController({
-				"command": "stop audio process"
-			});
-		}
-	};
-
 	self.src = "";
 	self.duration = 0;
 	self.paused = true;
+
+	self.decoded = false;
+	self.dataBucket = [];
+	self.listened = 0;
 
 	self.onend = function() {
 		self.duration = 0;
@@ -152,7 +246,8 @@ function similarHTML5Audio() {
 
 	self.pause = function() {
 		self.paused = true;
-		audioProcess("stop");
+		audio2stdout.stop();
+		clearTimeout(timeoutForNextSong);
 	};
 
 	self.canPlayType = function() {
@@ -160,198 +255,98 @@ function similarHTML5Audio() {
 	};
 
 	self.play = function() {
-		audioProcess("stop");
+		clearTimeout(timeoutForNextSong);
 
-		if (dataBuffer.length && dataSrc && (dataSrc === self.src)) {
-			audioProcess("start");
+		audio2stdout.stop();
+		audio2stdout.volume = self.volume;
+
+		if (self.decoded && dataSrc && (dataSrc === self.src)) {
+			audio2stdout.dataMass = self.dataBucket;
 			
 			return;
 		}
 
 		dataSrc = "";
-		dataBuffer = new Buffer(0);
+
+		self.paused = false;
 		self.duration = 0;
 
-		var proc = audioProcess("start");
+		self.decoded = false;
+		self.dataBucket = [];
+		self.listened = 0;
 
+		audio2stdout.onPlay = function(data) {
+			data = (data || []);
 
+			self.listened += data.length;
 
+			if (self.decoded && !data.length) {
+				audio2stdout.onPlay = function() {};
+				waitForChangeSong(1000);
+			}
+		}
+
+		audio2stdout.mp3Decoder.on("data", function(data) {
+			self.dataBucket.push(data);
+		});
+
+		audio2stdout.mp3Decoder.on("finish", function(data) {
+			self.decoded = true;
+		});
+ 
 		lastRequest = similarJQueryAjax({"url": self.src, "timeout": 15000})
 			.on("end", function(){
-				// console.log("end")
+				// console.log("end!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
 				clearTimeout(timeoutForNextSong);
-				proc.stdin.on("drain", waitForChangeSong);
-				proc.stdin.write(bucket);
 				dataSrc = self.src;
-				dataBuffer = Buffer.concat([dataBuffer, bucket]);
-				bucket = new Buffer(0);
 			})
 			.on("data", function(data){
 				// console.log("data!")
-				bucket = Buffer.concat([bucket, data])
-
-				if (proc && bucket.length > 100500) {
-					proc.stdin.write(bucket);
-					dataBuffer = Buffer.concat([dataBuffer, bucket]);
-					bucket = new Buffer(0);
-				}
-
 				waitForChangeSong(20000);
 			})
 			.fail(function(e, e2){
-				m["red"]("Can't load file");
-				audioProcess("stop");
-
-				timeoutForNextSong = setTimeout(self.onend, 5000);
+				m["red"]("Can't load file!!!!!!!");
+				self.pause();
+				waitForChangeSong(5000);
 			});
+
+		lastRequest.pipe(audio2stdout.mp3Decoder);
 	};
 
 	return self;
 };
 
+// http://microsin.net/programming/PC/wav-format.html
 // http://js.do/blog/sound-waves-with-javascript/
 // https://github.com/oampo/Audiolet/blob/master/src/audiolet/Audiolet.js#L2831
 // https://github.com/substack/baudio/blob/master/index.js#L33
 function generateSineDataRAW(param) {
-	var result = [];
 	var param = (param || {});
 	var phase = (param["phase"] || 0);
-	var gain = (param["gain"] || 0);
-	var bitRate = (param["bit rate"] || 16);
+	var gain = (1 >= param["gain"]) ? param["gain"] : 1;
+	var bitsPerSample = (param["bits per sample"] || 16);
 	var frequency = (param["frequency"] || 440);
 	var sampleRate = (param["sample rate"] || 44100);
-	var timeout = (0 < param["timeout"]) ? param["timeout"] / 1000 : 0; // translate to seconds
-	var averageBytePerSecond = sampleRate * bitRate / 8; //+3048; // http://www.sonicspot.com/guide/wavefiles.html
+	var channels = (param["channels"] || 2);
+	var timeout = (0 < param["timeout"]) ? (param["timeout"] / 1000) : 0; // translate to seconds
+	var sampleSize = bitsPerSample / 8;
+	var averageBytesPerSecond = (sampleRate * sampleSize * channels);
+	var blockAlign = sampleSize * channels;
+	var numSamples = Math.round((timeout * averageBytesPerSecond) / (blockAlign * sampleSize));
+	var volume = gain * (Math.pow(2, bitsPerSample - 1) - 1);
+	var t = (Math.PI * 2 * frequency) / (sampleRate) // * channels);
+	var bufferAudioData = new Buffer(numSamples * blockAlign);
 
-	// console.log("ok " + phase)
+	for (var i = 0; i < numSamples; i++) {
+		var val = Math.round(volume * Math.sin(t * i)); // sine wave
+		var offset = i * sampleSize * channels;
 
-	var tt = Math.round(timeout * averageBytePerSecond);
-
-	tt = tt % 2 ? tt + 1 : tt
-
-	var bufferAudioData = new Buffer(tt);
-
-	// console.log(sampleRate, timeout, timeout * averageBytePerSecond, tt, averageBytePerSecond)
-
-	for (var i = 0; i < bufferAudioData.length; i += 2) {
-		var integer = Math.round((Math.pow(2, 15) * Math.sin(phase) * gain) - 1);
-
-		bufferAudioData.writeInt16LE(integer, i);
-		phase += 2 * Math.PI * frequency / sampleRate;
-		phase %= 2 * Math.PI;
-		// console.log(i, phase)
-	}
-
-	return {
-		"buffer": bufferAudioData
-		,"phase": phase
-	}
-};
-
-function processController(param) {
-	param = (param || {});
-	param["command"] = (param["command"] || {});
-	param["parameters"] = (param["parameters"] || {});
-	param["callback"] = (param["callback"] || function() {});
-	param["data"];
-
-	if ("stop all processes" === param["command"]) { 
-		processController({"command": "stop audio process"});
-		processController({"command": "stop tick process"});
-	}
-	else if ("stop audio process" === param["command"]) {
-		if (lastRequest) {
-			lastRequest.abort();
-			lastRequest = undefined;
-		}
-
-		if (processForPlayAudio) {
-			processForPlayAudio.kill("SIGHUP"); // "SIGHUP", "SIGSTOP"
-			processForPlayAudio = undefined;
+		for (var channel = 0; channel < channels; channel++) {
+			bufferAudioData['writeInt' + bitsPerSample + 'LE'](val, offset + (channel * sampleSize));
 		}
 	}
-	else if ("stop tick process" === param["command"]) {
-		processController({"command": "stop tick"});
 
-		if (processForPlayTick) {
-			processForPlayTick.kill("SIGHUP"); // "SIGHUP", "SIGSTOP"
-			processForPlayTick = undefined;
-		}
-	}
-	else if ("start audio process" === param["command"]) {
-		if (!processForPlayAudio) {
-			if (option["use VLC player"]) {
-				var params = "-I dummy - -vv"; //--volume=1024 * parseFloat(param["parameters"]["volume"])
-
-				processForPlayAudio = child_process.spawn("vlc", params.split(" "));
-			}
-			else {
-				var params = "-G -t mp3 -v " + param["parameters"]["volume"] + " - -d trim " + param["parameters"]["start time"];
-
-				processForPlayAudio = child_process.spawn("sox", params.split(" "));
-			}
-		}
-
-		processForPlayTick.stdin.on("error", function(e) {
-			console.log(e);
-		});
-
-		return processForPlayAudio;
-	}
-	else if ("start tick process" === param["command"]) {
-		if (!processForPlayTick) {
-			if (option["use VLC player"]) {
-	 			var params = "-I dummy - --quiet";
-
-				processForPlayTick = child_process.spawn("vlc", params.split(" "));
-			}
-			else {
-	 			// sox -G --buffer 256 -c 1  -r 11025 -b 8 -n -d  synth 0.2 sine 1000
-	 			// processForPlayTick = child_process.spawn("sox", ["-t", "raw", "-r", "44100", "-b", "16", "-e", "unsigned-integer", "-", "-d"]);
-	 			var params = "--buffer 256 -c 1 -t s16 -b 16 -r " + option["tick sample rate"] + " - -d -q";
-
-				processForPlayTick = child_process.spawn("sox", params.split(" "));
-			}	
-
-			processForPlayTick.stdin.on("error", function(e) {
-				console.log(e);
-			});
-
-			processForPlayTick.streamWav = new wav.Writer({
-				"channels": 1
-				,"sampleRate": option["tick sample rate"]
-				,"bitDepth": 16
-			});
-
-			processForPlayTick.streamWav.pipe(processForPlayTick.stdin);
-		}
-
-		return processForPlayTick;
-	}
-	else if ("find audio player" === param["command"]) { 
-		child_process.spawn("sox", ["--version"]).stdout.on('data', function (data) {
-			if (data.toString().match(/SoX/) && (true !== option["use VLC player"])) {
-				option["use VLC player"] = false;
-				param["callback"]();
-
-				return;
-			}
-
-			console.log("(Haven't SoX utility, trying use VLC player)");
-
-			child_process.spawn("vlc", ["--version"]).stdout.on('data', function (data) {
-				if (data.toString().match(/VLC/)) {
-					option["use VLC player"] = true;
-					param["callback"]();
-
-					return;
-				}
-
-				console.log(whatRequire);
-				process.exit(0);
-			});
-		});
-	}
+	return bufferAudioData;
 };
 
 function startMorsetick() {
@@ -368,10 +363,10 @@ function startMorsetick() {
 			window.Audio = similarHTML5Audio;
 			window.console.error = console.error;
 			window.console.log = function() {
-				process.stdout.cursorTo(0, 0);
-				process.stdout.clearScreenDown();
+				process.stderr.cursorTo(0, 0);
+				process.stderr.clearScreenDown();
 
-				console.log.apply(console, arguments);
+				console.error.apply(console, arguments);
 			}
 
 			m["option duration"]["dot"] = option["key repeat speed"] + 10;
@@ -394,52 +389,43 @@ function startMorsetick() {
 			};
 
 			m["tick"] = function(param) {
-				m["tick"]["param"] = $.extend({
+				param = $.extend({
 					"timeout": 0 // in milliseconds
-					,"gain": (param && param["timeout"]) ? 0.05 : 0
+					,"gain": (param && param["timeout"]) ? 0.7 : 0
 					,"type": "sine" // 'sine', 'square', 'sawtooth', or 'triangle'.
 					,"frequency": 440
 				}, param);
 
-				var repeatTime = 64;
-				var nextSendTime = (new Date()).getTime();
-				var proc = processController({"command": "start tick process"});
+				m["audio"]["object"].pause();
+				audio2stdout.volume = param["gain"];
 
-				clearTimeout(m["tick"]["timeout"]);
-				clearTimeout(m["tick"]["delay"]);
-
-				m["tick"]["loop data send"] = function() {
-					clearTimeout(m["tick"]["timeout"]);
-					
-					if (-5000 > m["tick"]["param"]["timeout"]) {
-						return;
-					}
-					else if (0 > m["tick"]["param"]["timeout"]) {
-						m["tick"]["param"]["gain"] = 0;
-						repeatTime = 172;
-					}
-
-					var audio = generateSineDataRAW({
-						"gain": m["tick"]["param"]["gain"]
-						,"sample rate": option["tick sample rate"]
-						,"timeout": repeatTime
-						,"frequency": m["tick"]["param"]["frequency"]
-						,"phase": m["tick"]["phase"]
-					});
-
-					m["tick"]["phase"] = audio["phase"];
-					m["tick"]["param"]["timeout"] -= repeatTime;
-					proc.streamWav.write(audio["buffer"]);
-					m["tick"]["timeout"] = setTimeout(m["tick"]["loop data send"], repeatTime);
+				if (!param["timeout"] || !param["gain"]) {
+					return;
 				}
 
-				m["tick"]["delay"] = setTimeout(function() {
-					m["tick"]["phase"] = 0;
-					repeatTime = 128;
-					m["tick"]["loop data send"]();
-					repeatTime = 64;
-					m["tick"]["loop data send"]();
-				}, 172);
+				var keyName = "memory " + JSON.stringify(param);
+
+				if (!m["tick"][keyName]) {
+					if (!m["tick"]["memory silence"]) {
+						m["tick"]["memory silence"] = generateSineDataRAW({
+							"gain": 0
+							,"sample rate": option["audio sample rate"]
+							,"timeout": 5000 
+							,"frequency": param["frequency"]
+						});
+					}
+
+					m["tick"][keyName] = generateSineDataRAW({
+						"gain": 0.2
+						,"sample rate": option["audio sample rate"]
+						,"timeout": param["timeout"] 
+						,"frequency": param["frequency"]
+					});
+
+					m["tick"][keyName] = Buffer.concat([m["tick"][keyName], m["tick"]["memory silence"]])
+				}
+
+				audio2stdout.data = m["tick"][keyName];
 			};
 		
 			keypress(process.stdin);
@@ -450,10 +436,6 @@ function startMorsetick() {
 					try {
 						m["green"]("Bye-bye!");
 						m["off"]();
-
-						processController({
-							"command": "stop all processes"
-						})
 					}
 					catch(e) {}
 
@@ -493,11 +475,11 @@ process.on('uncaughtException', function (error) {
 	if ("ECONNRESET" === error.code) { // why ?
 		return;
 	}
+	else if (("ESOCKETTIMEDOUT" === error.code) && m && m["audio"] && m["audio"]["object"]) {
+		m["audio"]["object"].onend();
+	}
 
 	console.error("BIG ERROR :'Q", error);
 });
 
-processController({
-	"command": "find audio player"
-	,"callback": startMorsetick
-});
+startMorsetick();

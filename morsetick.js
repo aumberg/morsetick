@@ -104,6 +104,8 @@
 		if (m["keydown"]["wait"]) {
 			return;
 		}
+
+		m["keydown"]["expect uptime"] = (new Date()).getTime();
 		
 		var duration = m["duration"]();
 
@@ -113,6 +115,7 @@
 			var doubleDownDiff = (new Date()).getTime() - m["keydown"]["downtime"];
 			var delay = duration["dot"] + ((duration["dot dash mean"] < doubleDownDiff) ? 0 : 50);
 
+			m["keydown"]["expect uptime"] += delay;
 			m["keyup"]["timeout character"] = setTimeout(m["keyup"], delay);
 			m["event"]("double keydown", delay);
 
@@ -121,6 +124,7 @@
 
 		var delay = (true === isHaveOnlyKeydownEvent) ? duration["dot"] : duration["dash"];
 
+		m["keydown"]["expect uptime"] += delay;
 		m["keydown"]["downtime"] = (new Date()).getTime();
 		m["keyup"]["timeout character"] = setTimeout(m["keyup"], delay);
 		m["event"]("keydown", delay);
@@ -143,6 +147,10 @@
 		}
 
 		m["keyup"]["uptime"] = (new Date()).getTime();
+
+		if (m["keyup"]["uptime"] > m["keydown"]["expect uptime"]) {
+			m["keyup"]["uptime"] = m["keydown"]["expect uptime"];
+		}
 
 		var duration = m["duration"]();
 		var uptimeDiff = m["keyup"]["uptime"] - m["keydown"]["downtime"];
@@ -744,18 +752,20 @@
 		"|     and in soundcloud (https://soundcloud.com/). Script can |" + "\n" +
 		"|     used in your own application to obtain Morse code power.|" + "\n" +
 		"|                                                             |" + "\n" +
-		"|GET STARTED                                                  |" + "\n" + 
+		"|GET STARTED                                                  |" + "\n" +
 		"|     Click in series any alphanumeric key on keyboard        |" + "\n" +
 		"|     to search by Morse code or type request in 'noob' mode. |" + "\n" +
 		"|                                                             |" + "\n" +
 		"|     Usage type:                                             |" + "\n" +
-		"|          1) In browser, by include script 'morsetick.js'.   |" + "\n" + 
-		"|                                                             |" + "\n" + 
-		"|          2) From system console. Support search local music.|" + "\n" + 
-		"|          Сan work in Raspberry PI (http://raspberrypi.org/).|" + "\n" +
-		"|          Requires installed:                                |" + "\n" +
-		"|               * NodeJs (http://nodejs.org/)                 |" + "\n" + 
-		"|               * SoX (http://sox.sourceforge.net/)           |" + "\n" + 
+		"|          1) In browser, by include script 'morsetick.js'.   |" + "\n" +
+		"|                                                             |" + "\n" +
+		"|          2) From system console. Support search local music.|" + "\n" +
+		"|          Сan work on Raspberry PI (http://raspberrypi.org/).|" + "\n" +
+		"|                                                             |" + "\n" +
+		"|          Run in console:                                    |" + "\n" +
+		"|               * sudo apt-get install nodejs npm             |" + "\n" +
+		"|               * npm install                                 |" + "\n" +
+		"|               * node index.js | aplay -f cd                 |" + "\n" +
 		"|                                                             |" + "\n" +
 		"|COMMANDS                                                     |" + "\n" +
 		"|     e - toggle play & pause                                 |" + "\n" +
@@ -764,31 +774,31 @@
 		"|     e (number) - change track number (from 1 to 100)        |" + "\n" +
 		"|     e v - set Volume (from 0 to 9)                          |" + "\n" +
 		"|     e l - show listened Links                               |" + "\n" +
-		"|     e e (text) - search with 'e ' at start                  |" + "\n" + 
-		"|     e h - show this Help                                    |" + "\n" + 
-		"|                                                             |" + "\n" + 
-		"|COPYRIGHT                                                    |" + "\n" + 
-		"|     License - http://unlicense.org/UNLICENSE                |" + "\n" + 
-		"|     Manifesto - http://minifesto.org/                       |" + "\n" + 
-		"|     Project page - https://github.com/aumberg/morsetick     |" + "\n" + 
-		"|                                                             |" + "\n" + 
-		"|AUTHOR                                                       |" + "\n" + 
-		"|     Alexander Umberg (slovastick@mail.ru)                   |" + "\n" + 
-		"|     on GitHub - https://github.com/aumberg                  |" + "\n" + 
-		"|                                                             |" + "\n" + 
-		"|Thanks for all, without who this program never looked like so|" + "\n" + 
-		"|                                    ...Oh, you are amazing!!!|" + "\n" + 
-		"|                                                             |" + "\n" + 
-		"|MORSE CODES                                                  |" + "\n" + 
-		"| a .-         b -...       c -.-.       d -..                |" + "\n" + 
-		"| e .          f ..-.       g --.        h ....               |" + "\n" + 
-		"| i ..         j .---       k -.-        l .-..               |" + "\n" + 
-		"| m --         n -.         o ---        p .--.               |" + "\n" + 
-		"| q --.-       r .-.        s ...        t -                  |" + "\n" + 
-		"| u ..-        v ...-       w .--        x -..-               |" + "\n" + 
-		"| y -.--       z --..                                         |" + "\n" + 
-		"|                                                             |" + "\n" + 
-		"| 1 .----      2 ..---      3 ...--      4 ....-      5 ..... |" + "\n" + 
-		"| 6 -....      7 --...      8 ---..      9 ----.      0 ----- |" + "\n" + 
+		"|     e e (text) - search with 'e ' at start                  |" + "\n" +
+		"|     e h - show this Help                                    |" + "\n" +
+		"|                                                             |" + "\n" +
+		"|COPYRIGHT                                                    |" + "\n" +
+		"|     License - http://unlicense.org/UNLICENSE                |" + "\n" +
+		"|     Manifesto - http://minifesto.org/                       |" + "\n" +
+		"|     Project page - https://github.com/aumberg/morsetick     |" + "\n" +
+		"|                                                             |" + "\n" +
+		"|AUTHOR                                                       |" + "\n" +
+		"|     Alexander Umberg (slovastick@mail.ru)                   |" + "\n" +
+		"|     on GitHub - https://github.com/aumberg                  |" + "\n" +
+		"|                                                             |" + "\n" +
+		"|Thanks for all, without who this program never looked like so|" + "\n" +
+		"|                                    ...Oh, you are amazing!!!|" + "\n" +
+		"|                                                             |" + "\n" +
+		"|MORSE CODES                                                  |" + "\n" +
+		"| a .-         b -...       c -.-.       d -..                |" + "\n" +
+		"| e .          f ..-.       g --.        h ....               |" + "\n" +
+		"| i ..         j .---       k -.-        l .-..               |" + "\n" +
+		"| m --         n -.         o ---        p .--.               |" + "\n" +
+		"| q --.-       r .-.        s ...        t -                  |" + "\n" +
+		"| u ..-        v ...-       w .--        x -..-               |" + "\n" +
+		"| y -.--       z --..                                         |" + "\n" +
+		"|                                                             |" + "\n" +
+		"| 1 .----      2 ..---      3 ...--      4 ....-      5 ..... |" + "\n" +
+		"| 6 -....      7 --...      8 ---..      9 ----.      0 ----- |" + "\n" +
 		"|_____________________________________________________________|" + "\n";
 }());
