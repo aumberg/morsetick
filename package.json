@@ -13,8 +13,10 @@
 	},
 	"dependencies": {
 		"wav": "*",
-		"jsdom": "*",
-		"request": "*",
+		"lame": "*",
+		"jsdom": "3.1.2",
+		"bhttp": "*",
+		"speaker": "*",
 		"keypress": "*"
 	},
 	"repository": {
@@ -22,8 +24,6 @@
 		"url": "git://github.com/aumberg/morsetick.git"
 	},
 	"keywords": [
-		"sox",
-		"beep",
 		"morse",
 		"audio",
 		"player",

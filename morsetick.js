@@ -250,7 +250,7 @@
 
 				event.preventDefault();
 
-				if (isBackspace && (2 > current["latin"].length)) {
+				if (isBackspace && (3 > current["latin"].length)) {
 					character = "";
 					m["clear input"]();
 					current = m["in history"]("current");
@@ -295,19 +295,20 @@
 			});
 	});
 
-	m["event"] = function(eventName) {
+	m["event"] = function(eventName, value) {
 		var current = m["in history"]("current");
 
 		if ("keydown" === eventName) {
+			if (!m["keyup"]["morse code"]) {
+				m["memory audio was on pause"] = m["audio"]["object"] && m["audio"]["object"].paused;
+				m["audio"]();
+			}
+
 			m["tick"]({"timeout": m["duration"]()["dash"]});
 		}
 		else if ("keyup" === eventName) {
 			current["morse"] = m["keyup"]["morse code"];
 			current = m["in history"]("current");
-
-			if (".    " !== (current["morse"] + "    ").slice(0, 5)) {
-				m["audio"]();
-			}
 
 			var msg = JSON.stringify({
 				"Latin": current["latin"]
@@ -323,9 +324,6 @@
 				m["keyup"](true);
 				setTimeout(m["link play"], 3000);
 			}
-		}
-		else if ("start search" === eventName) {
-			m["tick"]({"timeout": 30, "frequency": 329.63});
 		}
 
 		m["external event listener"].apply(this, arguments);
@@ -343,24 +341,33 @@
 		
 		// write help
 		if ("h" === name) {
-			var helpWindow = window.open ? window.open("", "_blank") : undefined;
+			$.ajax({"url":"readme.md"}).done(function(res) {
+				var helpWindow = window.open ? window.open("", "_blank") : undefined;
 
-			if (helpWindow) {
-				$("body", helpWindow.document).append($("<textarea style=\"height:100%;width:100%;\">").val(m["man"]));
-			}
+				if (helpWindow) {
+					$("body", helpWindow.document).append($("<textarea style=\"height:100%;width:100%;\">").val(res));
+				}
 
-			m["green"](m["man"]);
+				m["green"](res);
+			});
 		}
 		else if (!current["link"]) {
 			m["red"]("Firstly search music");		
 		}
 		// toggle play & pause
 		else if (!name || ("string" !== typeof name)) {
-			if (m["audio"]["object"] && !m["audio"]["object"].paused) {
-				m["audio"]({"command": "pause"});
+			if (m["keyup"]["morse code"]) {
+				var paused = m["memory audio was on pause"];
 			}
 			else {
+				var paused = (m["audio"]["object"] && m["audio"]["object"].paused);
+			}
+
+			if (m["audio"]["object"] && paused) {
 				m["audio"]({"command": "play"});
+			}
+			else {
+				m["audio"]({"command": "pause"});
 			}
 		}
 		// change track
@@ -384,7 +391,6 @@
 
 			if (NaN !== vol && (0 <= vol) && (9 >= vol)) {
 				m["option audio volume"] = vol;
-				m["audio"]({"command": "pause"});
 				m["audio"]({"command": "play"});
 			}
 		}
@@ -463,8 +469,8 @@
 
 		var match = request.match(/^e$|^e\s+(\S*)(\s*)(.*)$/i);
 
-		m["event"]("start search");
 		m["keydown"]["wait"] = true;
+		m["tick"]({"timeout": 30, "frequency": 329.63});
 
 		if (match) {
 			if ("e" !== match[1]) {
@@ -476,6 +482,7 @@
 			request = match.slice(1).join(""); // search with 'e ' at start
 		}
 
+		m["event"]("start search");
 		m["search links in html"](request);
 		m["search links in soundcloud and play"](request);
 	};
@@ -523,6 +530,9 @@
 		if ("function" === typeof (m["search links in soundcloud and play"]["jqXHR"] || {}).abort) {
 			m["search links in soundcloud and play"]["jqXHR"].abort();
 		}
+		else {
+			$.ajax();
+		}
 		// 
 
 		m["search links in soundcloud and play"]["jqXHR"] = $.ajax(param)
@@ -534,7 +544,7 @@
 						var current = m["in history"]("current");
 
 						for (var i = 0; (i < traks.length) && (m["option links limit"] >= current["links"].length); i++) {
-							if (!traks[i].stream_url) {
+							if (!traks[i] || !traks[i]["stream_url"]) {
 								continue;
 							}
 
@@ -556,6 +566,12 @@
 	};
 
 	m["link play"] = function() {
+		var current = m["memory current"];
+
+		if (!current["links"][current["number"] - 1]) {
+			current["number"] = (1 < current["number"]) ? current["links"].length : 1;
+		}
+
 		var last = m["in history"]("push");
 
 		if (last["source"]) {
@@ -676,6 +692,8 @@
 			,"oscillator": m["tick"]["oscillator"]
 		}, param);
 
+		// m["audio"]();
+
 		if (!param["oscillator"]) {
 			var AudioContext = (window.AudioContext || window.webkitAudioContext);
 
@@ -736,69 +754,8 @@
 		return string.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&");
 	};
 
+	m["memory audio was on pause"] = false;
 	m["memory is noob mode"] = false;
 	m["memory history"] = [];
 	m["memory current"] = m["in history"]();
-
-	m["man"] = "\n" +
-		" _____________________________________________________________ " + "\n" +
-		"|                                                             |" + "\n" +
-		"|NAME                                                         |" + "\n" +
-		"|     MorseTick - old school, telegraphic audio player        |" + "\n" +
-		"|                                                             |" + "\n" +
-		"|DESCRIPTION                                                  |" + "\n" +
-		"|     MorseTick - old school, telegraphic audio player written|" + "\n" +
-		"|     in JavaScript, uses Morse code to search music locally  |" + "\n" +
-		"|     and in soundcloud (https://soundcloud.com/). Script can |" + "\n" +
-		"|     used in your own application to obtain Morse code power.|" + "\n" +
-		"|                                                             |" + "\n" +
-		"|GET STARTED                                                  |" + "\n" +
-		"|     Click in series any alphanumeric key on keyboard        |" + "\n" +
-		"|     to search by Morse code or type request in 'noob' mode. |" + "\n" +
-		"|                                                             |" + "\n" +
-		"|     Usage type:                                             |" + "\n" +
-		"|          1) In browser, by include script 'morsetick.js'.   |" + "\n" +
-		"|                                                             |" + "\n" +
-		"|          2) From system console. Support search local music.|" + "\n" +
-		"|          Сan work on Raspberry PI (http://raspberrypi.org/).|" + "\n" +
-		"|                                                             |" + "\n" +
-		"|          Run in console:                                    |" + "\n" +
-		"|               * sudo apt-get install nodejs npm             |" + "\n" +
-		"|               * npm install                                 |" + "\n" +
-		"|               * node index.js | aplay -f cd                 |" + "\n" +
-		"|                                                             |" + "\n" +
-		"|COMMANDS                                                     |" + "\n" +
-		"|     e - toggle play & pause                                 |" + "\n" +
-		"|     e n - Next track                                        |" + "\n" +
-		"|     e p - Previous track                                    |" + "\n" +
-		"|     e (number) - change track number (from 1 to 100)        |" + "\n" +
-		"|     e v - set Volume (from 0 to 9)                          |" + "\n" +
-		"|     e l - show listened Links                               |" + "\n" +
-		"|     e e (text) - search with 'e ' at start                  |" + "\n" +
-		"|     e h - show this Help                                    |" + "\n" +
-		"|                                                             |" + "\n" +
-		"|COPYRIGHT                                                    |" + "\n" +
-		"|     License - http://unlicense.org/UNLICENSE                |" + "\n" +
-		"|     Manifesto - http://minifesto.org/                       |" + "\n" +
-		"|     Project page - https://github.com/aumberg/morsetick     |" + "\n" +
-		"|                                                             |" + "\n" +
-		"|AUTHOR                                                       |" + "\n" +
-		"|     Alexander Umberg (slovastick@mail.ru)                   |" + "\n" +
-		"|     on GitHub - https://github.com/aumberg                  |" + "\n" +
-		"|                                                             |" + "\n" +
-		"|Thanks for all, without who this program never looked like so|" + "\n" +
-		"|                                    ...Oh, you are amazing!!!|" + "\n" +
-		"|                                                             |" + "\n" +
-		"|MORSE CODES                                                  |" + "\n" +
-		"| a .-         b -...       c -.-.       d -..                |" + "\n" +
-		"| e .          f ..-.       g --.        h ....               |" + "\n" +
-		"| i ..         j .---       k -.-        l .-..               |" + "\n" +
-		"| m --         n -.         o ---        p .--.               |" + "\n" +
-		"| q --.-       r .-.        s ...        t -                  |" + "\n" +
-		"| u ..-        v ...-       w .--        x -..-               |" + "\n" +
-		"| y -.--       z --..                                         |" + "\n" +
-		"|                                                             |" + "\n" +
-		"| 1 .----      2 ..---      3 ...--      4 ....-      5 ..... |" + "\n" +
-		"| 6 -....      7 --...      8 ---..      9 ----.      0 ----- |" + "\n" +
-		"|_____________________________________________________________|" + "\n";
 }());
