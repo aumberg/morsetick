@@ -143,11 +143,15 @@
 			});
 
 			m["external event listener"] = function(eventName) {
-				if (("keyup" === eventName) || ("not playing" === eventName)) {
+				if ("keyup" === eventName) {
 					var current = m["in history"]("current");
 
 					elementLatinText.val(current["latin"]);
 					elementMorseCode.val(current["morse"]);
+				}
+				else if ("not playing" === eventName) {
+					elementLatinText.val("");
+					elementMorseCode.val("");
 					elementFound.html("");
 				}
 				else if ("playing" === eventName) {
@@ -156,6 +160,11 @@
 						+ "' target='_blank'>link</a> of " + current["links"].length + " is playing.";
 
 					elementFound.html(html);
+
+					var current = m["in history"]("current");
+
+					elementLatinText.val(current["latin"]);
+					elementMorseCode.val(current["morse"]);
 				}
 			};
 		})
@@ -168,7 +177,7 @@
 		-
 		<span id="option_program_description">
 			old school, telegraphic audio player<br>
-			written in JavaScript, uses Morse code to search music localy and in
+			written in JavaScript, uses Morse code to search music in
 		</span>		
 		<a href="https://soundcloud.com/" target="_blank">
 			soundcloud
