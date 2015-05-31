@@ -578,21 +578,23 @@ function startMorsetick() {
 				console.log.apply(console, arguments);
 			}
 
+			try {
+				var jsonLinks = fs.readFileSync(__dirname + "/links.json").toString();
+
+				m["memory history"] = JSON.parse(jsonLinks);
+			}
+			catch (e) {}
+
 			m["option duration"]["dot"] = option["key repeat speed"] + 10;
 			m["option console log"] = true;
 
 			m["external event listener"] = function(eventName, value) {
 				if ("link play" === eventName) {
 					try {
-						var jsonLinks = fs.readFileSync(__dirname + "/links.json").toString();
-						var oldLinks = JSON.parse(jsonLinks);
-						var newLink = m["links"]().slice(-1);
-						var data = oldLinks.slice(-m["option links limit"] + 1).concat(newLink);
-
-						fs.writeFile(__dirname + "/links.json", JSON.stringify(data).replace(/},{/g, "},\n{"));
+						fs.writeFile(__dirname + "/links.json", JSON.stringify(m["links"]().slice(0, 100)).replace(/},{/g, "},\n{"));
 					}
 					catch (e) {
-						m["red"]("Can't open file links.json")
+						m["red"]("Can't write links.json");
 					}
 				}
 				else if (("start command" === eventName) && ("h" === value[0])) {
@@ -640,7 +642,7 @@ function startMorsetick() {
 			m["tick"]({"timeout": m["duration"]()["dash"]});
 			m["tick"]({"timeout": m["duration"]()["dot"]});
 			m["green"]("steady?!");
-
+	
 			keypress(process.stdin);
 			process.stdin.setRawMode(true);
 			process.stdin.resume();

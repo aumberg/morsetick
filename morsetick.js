@@ -600,10 +600,10 @@
 		for (var i = 0; i < m["memory history"].length; i++) {
 			var h = m["memory history"][i];
 			var link = {
-				"Date" : h["date"]
-				,"Latin" : h["latin"]
-				,"Number" : h["number"]
-				,"Link" : h["link"]
+				"date" : h["date"]
+				,"latin" : h["latin"]
+				,"number" : h["number"]
+				,"link" : h["link"]
 			};
 
 			links.push(link);
