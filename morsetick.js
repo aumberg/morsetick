@@ -17,7 +17,7 @@
 	m["$"] = $;
 
 	m["option program name"] = "MorseTick";
-	m["option program version"] = "0.1";
+	m["option program version"] = "0.2";
 
 	m["option console log"] = false;
 	m["option links limit"] = 100;
@@ -44,7 +44,7 @@
 		d["character space"] = (d["character space"] || (d["dot"] * 3));
 		d["word space"] = (d["word space"] || (d["dot"] * 7));
 		d["stop function"] = (d["stop function"] || (d["dot"] * 16));
-		d["dot dash mean"] = (d["dot dash mean"] || ((d["dash"] - d["dot"]) / 2 + d["dot"]));
+		d["dot dash mean"] = (d["dot dash mean"] || ((d["dash"] + d["dot"]) / 2));
 
 		return d;
 	}

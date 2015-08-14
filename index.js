@@ -88,8 +88,7 @@ audio2output = new (function() {
 			self.processOutput.stdin = new Lame.Encoder();
 			self.processOutput.stdin.pipe(process.stdout);
 		}
-		
-		if ("sox" === param["audio stdout"]) {
+		else if ("sox" === param["audio stdout"]) {
 			if ("mp3" === param["format"]) {
 				var soxParams = "-t mp3";
 			}
@@ -232,7 +231,7 @@ audio2output = new (function() {
 		// console.log("currenttime", currentTime, "expecttime", expectTime)
 		// console.log("timeDiff",timeDiff, "repeatTime", self.repeatTime, "bnum", bnum, "chunk.length", chunk.length, self.dataMass.length)
 
-		// decrease volume, bad but faster than there - https://www.npmjs.com/package/raw-volume
+		// decrease volume, bad but faster than there - https://www.npmjs.com/package/pcm-volume
 		for (var i = 0; i < chunk.length; i += 2) {
 			var b1 = chunk[i];
 			var b2 = chunk[i+1] << 8;
