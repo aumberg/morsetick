@@ -32,7 +32,7 @@
 |     # With "sox" and "wav"                                  |
 |       node index.js '{"audio stdout":"wav"}'| play -qtwav - |
 |                                                             |
-|     # With "sox" and "mp3" streaming                        |
+|     # With "vlc" and "mp3" streaming                        |
 |       node index.js '{"audio stdout":"wav"}' | cvlc -q -    |
 |     --sout '#transcode{acodec=mp3}:standard{access=http,    |
 |     mux=raw,dst=localhost:8088}'                            |

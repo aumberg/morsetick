@@ -1,6 +1,6 @@
 {
 	"name": "morsetick",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"description": "MorseTick - old school, telegraphic audio player",
 	"homepage": "http://aumberg.github.io/morsetick/",
 	"license": "Unlicense",
@@ -12,12 +12,12 @@
 		"url": "https://github.com/aumberg"
 	},
 	"dependencies": {
-		"wav": "*",
-		"lame": "*",
+		"wav": "^1.0.0",
+		"lame": "^1.2.2",
 		"jsdom": "3.1.2",
-		"bhttp": "*",
-		"speaker": "*",
-		"keypress": "*"
+		"bhttp": "^1.2.1",
+		"speaker": "^0.2.5",
+		"keypress": "^0.2.1"
 	},
 	"repository": {
 		"type": "git",
