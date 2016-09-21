@@ -3,43 +3,26 @@
  _____________________________________________________________ 
 |                                                             |
 |NAME                                                         |
-|     MorseTick - old school, telegraphic audio player        |
+|     MorseTick - old school, audio player for RaspberryPi    |
 |                                                             |
 |DESCRIPTION                                                  |
-|     MorseTick - old school, telegraphic audio player,       |
-|     written in JavaScript, uses Morse code to search music  |
-|     in soundcloud (https://soundcloud.com/). Script core can|
-|     used in your own application to obtain Morse code power.|
-|                                                             |
-|INSTALL FOR BROWSERS                                         |
-|     Include source "morsetick.js" in <script/> tag.         |
-|                                                             |
-|INSTALL CONSOLE VERSION                                      |
-|     # Install NodeJs, npm and project dependences           |
+|     MorseTick - old school, audio player for RaspberryPi,   |
+|     written in JavaScript. Search can uses Morse code       |
+|     in soundcloud (https://soundcloud.com/).                |
+\                                                             |
+|INSTALL AND RUN                                              |
+|       sudo kbdrate -r 20 -d 200                             |
 |       sudo apt-get install nodejs npm                       |
-|     && cd /path_to_project_folder                           |
-|     && npm install                                          |
-|                                                             |
-|     # Install SoX (required for single-board computers)     |
 |       sudo apt-get install sox                              |
-|                                                             |
-|     # Start player                                          |
+|       sudo apt-get install git                              |
+|       git clone https://github.com/aumberg/morsetick        |
+|       cd morsetick                                          |
+|       npm install                                           |
 |       node index.js                                         |
 |                                                             |
-|     # Start with "aplay" and "raw" audio output             |
-|       node index.js '{"audio stdout":"raw"}' | aplay -qfcd  |
-|                                                             |
-|     # With "sox" and "wav"                                  |
-|       node index.js '{"audio stdout":"wav"}'| play -qtwav - |
-|                                                             |
-|     # With "vlc" and "mp3" streaming                        |
-|       node index.js '{"audio stdout":"wav"}' | cvlc -q -    |
-|     --sout '#transcode{acodec=mp3}:standard{access=http,    |
-|     mux=raw,dst=localhost:8088}'                            |
-|                                                             |
-|GET STARTED                                                  |
-|     Click in series any alphanumeric key on keyboard        |
-|     to search by Morse code or type request in "noob" mode. |
+|INSTALL IN AUTOLOAD                                          |
+|   # add command to /etc/rc.local                            |
+|   su pi -c '(nice -n 1 node /home/pi/morsetick/index.js &)' |
 |                                                             |
 |COMMANDS                                                     |
 |     e - toggle play & pause                                 |
@@ -55,7 +38,7 @@
 |     Written by Alexander Umberg (slovastick@mail.ru)        |
 |                                                             |
 |Thanks for all, without who this program never looked like so|
-|                                    ...Oh, you are amazing!!!|
+|                        ...Oh, you are amazing and awesome!!!|
 |                                                             |
 |COPYRIGHT                                                    |
 |     Project page - https://github.com/aumberg/morsetick     |
