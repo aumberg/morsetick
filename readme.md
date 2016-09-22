@@ -7,22 +7,19 @@
 |                                                             |
 |DESCRIPTION                                                  |
 |     MorseTick - old school, audio player for RaspberryPi,   |
-|     written in JavaScript. Search can uses Morse code       |
-|     in soundcloud (https://soundcloud.com/).                |
+|     written in JavaScript. You can use Morse code for search|
+|     in Soundcloud by one button (https://soundcloud.com/).  |
 \                                                             |
-|INSTALL AND RUN                                              |
+|INSTALL AND RUN (nodejs v0.10.36 on Raspbian)                |
 |       sudo kbdrate -r 20 -d 200                             |
 |       sudo apt-get install nodejs npm                       |
 |       sudo apt-get install sox                              |
+|       sudo apt-get install libsox-fmt-mp3                   |
 |       sudo apt-get install git                              |
 |       git clone https://github.com/aumberg/morsetick        |
 |       cd morsetick                                          |
 |       npm install                                           |
 |       node index.js                                         |
-|                                                             |
-|INSTALL IN AUTOLOAD                                          |
-|   # add command to /etc/rc.local                            |
-|   su pi -c '(nice -n 1 node /home/pi/morsetick/index.js &)' |
 |                                                             |
 |COMMANDS                                                     |
 |     e - toggle play & pause                                 |
